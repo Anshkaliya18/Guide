@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Earth Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="space-bg"></div>
+    <canvas id="particles"></canvas>
+
+    <header class="hero" id="hero">
+      <div class="hero-content">
+        <p class="kicker">3D Earth Explorer</p>
+        <h1>Discover Hidden Gems Around The World</h1>
+        <p class="subtitle">
+          Explore underrated locations, historical landmarks, nature escapes, museums, viewpoints and secret places near you.
+        </p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" id="startExplore">Start Exploring</button>
+          <button class="btn btn-ghost" id="detectLocation">Detect My Location</button>
+        </div>
+      </div>
+
+      <div class="hero-globe-wrap">
+        <div id="heroGlobeCanvas" aria-label="hero earth globe"></div>
+      </div>
+    </header>
+
+    <main class="app-shell" id="appShell">
+      <aside class="panel glass left-panel">
+        <section>
+          <h2>Location</h2>
+          <div class="search-wrap">
+            <input id="locationInput" placeholder="Search city or place..." />
+          </div>
+          <div class="row">
+            <button class="btn btn-soft" id="detectMyLocation">Detect My Location</button>
+            <button class="btn btn-soft">Use Coordinates</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>Radius</h2>
+          <label for="radius" class="slider-label">Search radius: <span id="radiusValue">15km</span></label>
+          <input type="range" min="1" max="50" value="15" id="radius" />
+        </section>
+
+        <section>
+          <h2>Categories</h2>
+          <div class="chips" id="chips"></div>
+        </section>
+
+        <button class="btn btn-primary discover" id="discoverBtn">DISCOVER HIDDEN GEMS</button>
+
+        <section>
+          <h2>Statistics</h2>
+          <div class="stats">
+            <article><span id="statFound">0</span><p>Places Found</p></article>
+            <article><span id="statCountries">0</span><p>Countries Explored</p></article>
+            <article><span id="statSaved">0</span><p>Saved Locations</p></article>
+            <article><span id="statTrips">0</span><p>Discoveries Made</p></article>
+          </div>
+        </section>
+      </aside>
+
+      <section class="globe-stage glass">
+        <div class="stage-stars"></div>
+        <div class="main-globe" id="mainGlobe">
+          <div id="globeCanvas" aria-label="location selection earth globe"></div>
+        </div>
+        <div class="globe-hint">Drag • Rotate • Zoom • Double Click to Focus</div>
+      </section>
+
+      <aside class="panel glass right-panel">
+        <div class="panel-header">
+          <h2>Discovery Results</h2>
+          <button class="btn btn-soft" id="savedTab">Saved Places</button>
+        </div>
+
+        <div id="loadingState" class="loading-state hidden">
+          <div class="loader-ring"></div>
+          <p>Scanning nearby hidden gems...</p>
+          <div class="progress"><div id="progressFill"></div></div>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <div class="empty-earth"></div>
+          <p>No hidden gems found in this area.</p>
+          <button class="btn btn-soft" id="expandRadius">Expand Search Radius</button>
+        </div>
+
+        <div id="results" class="results"></div>
+      </aside>
+    </main>
+
+    <div class="mobile-nav">
+      <button id="mobileControls">Controls</button>
+      <button id="mobileDiscover">Discover</button>
+      <button id="mobileResults">Results</button>
+    </div>
+
+    <div class="modal hidden" id="detailModal">
+      <div class="modal-card glass">
+        <button id="closeModal" class="close">×</button>
+        <div class="banner"></div>
+        <h3 id="modalTitle"></h3>
+        <p id="modalMeta"></p>
+        <p id="modalDesc"></p>
+        <div class="row">
+          <button class="btn btn-primary">Fly To Location</button>
+          <button class="btn btn-soft">Open Maps</button>
+          <button class="btn btn-soft" id="saveFavorite">Save Favorite</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.26.5/dist/globe.gl.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
