@@ -1,0 +1,112 @@
+# Ignore user-specific files and folders
+# -------------------------------------------------
+# System files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Virtual machine / IDE caches
+.vscode/
+.idea/
+*.code-workspace
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+
+# Environment / virtualenvs
+.venv/
+env/
+venv/
+ENV/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.old
+*.swp
+*.swo
+*.~*
+
+# User data directories (specific to this user)
+Desktop/
+Documents/
+Downloads/
+Music/
+Pictures/
+Videos/
+AppData/
+VirtualBox/
+.anaconda/
+.conda/
+.cagent/
+.cargo/
+.chocolatey/
+.continuum/
+.copilot/
+.deepface/
+.designer/
+.docker/
+.env
+.gemini/
+.gnupg/
+.idlerc/
+.ipynb_checkpoints/
+.ipython/
+.jupyter/
+.keras/
+.kombai-binaries/
+.kombai/
+.lesshst
+.local/
+.matplotlib/
+.modelscope/
+.node_repl_history
+.ollama/
+.paddlex/
+.python_history
+.redhat/
+.rustup/
+.sbx-denybin/
+.skiko/
+.streamlit/
+.thumbnails/
+.venv/
+.viminfo
+.virtual_documents/
+.vscode-R/
+.vscode-agents-insiders/
+.vscode-insiders-shared/
+.vscode-insiders/
+.vscode/
+
+# Project-specific artefacts
+*.sqlite3
+*.db
+*.sqlite
+*.db-journal
+
+# Build artefacts
+build/
+Dist/
+*.egg
+*.egg-info
+*.dist-info
+
+# IDE specific
+*.iml
+*.ipr
+*.iws
+
+# Miscellaneous
+*~
+# End of .gitignore

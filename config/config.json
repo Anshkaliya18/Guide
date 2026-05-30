@@ -1,0 +1,30 @@
+{
+  "api": {
+    "provider": "openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "model": "openai/gpt-oss-120b:free",
+    "temperature": 0.3,
+    "max_tokens": 500,
+    "headers": {
+      "HTTP-Referer": "https://your-site.com",
+      "X-Title": "Underrated Locations Guide"
+    }
+  },
+  "search_settings": {
+    "default_radius": 5000,
+    "default_min_score": 0.6,
+    "max_results": 10
+  },
+  "categories": {
+    "natural_sights": ["river", "stream", "waterfall", "lake", "pond", "forest", "tree", "peak"],
+    "viewpoints": ["viewpoint", "lookout", "panorama", "vista"],
+    "water_features": ["river", "stream", "waterfall", "lake", "pond"],
+    "hidden_gems": ["park", "garden", "nature", "trail", "beach", "cove", "memorial", "monument"]
+  },
+  "boost_factors": {
+    "natural": 0.1,
+    "water": 0.15,
+    "viewpoint": 0.12,
+    "hidden_gem": 0.2
+  }
+}
