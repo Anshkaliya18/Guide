@@ -52,7 +52,8 @@ A Python application that intelligently identifies and rates underrated location
 See [requirements.txt](requirements.txt) for full list:
 - `requests` - HTTP client
 - `geopy` - Geocoding & distance calculation
-- `python-dotenv` - Environment variable management
+
+> Note: The app reads `OPENROUTER_API_KEY` from the environment using `os.getenv`. A local `.env` file is optional and does not require `python-dotenv` unless you add explicit loading support.
 
 ---
 
@@ -60,8 +61,8 @@ See [requirements.txt](requirements.txt) for full list:
 
 ### Step 1: Clone Repository
 ```bash
-git clone https://github.com/yourusername/3d-earth-explorer.git
-cd 3d-earth-explorer
+git clone <repo-url>
+cd Guide
 ```
 
 ### Step 2: Create Virtual Environment (Recommended)
@@ -178,9 +179,9 @@ for loc in locations:
 ## 📁 Project Structure
 
 ```
-3d-earth-explorer/
+Guide/
 ├── src/
-│   └── guide_app.py              # Main application (OpenRouter API)
+│   └── guide_app.py              # Main application
 │
 ├── tests/
 │   └── test_guide_app.py         # Unit & integration tests
@@ -189,17 +190,22 @@ for loc in locations:
 │   └── config.json               # API settings & categories
 │
 ├── web/
-│   ├── index.html                # Web interface (optional)
-│   ├── app.js                    # JavaScript logic
+│   ├── index.html                # Web interface landing page
+│   ├── about.html                # About page
+│   ├── explore.html              # Explore interface
+│   ├── saved.html                # Saved locations page
+│   ├── about.js                  # Page logic for About
+│   ├── explore.js                # Page logic for Explore
+│   ├── saved.js                  # Page logic for Saved
+│   ├── nav.js                    # Navigation helper
 │   └── styles.css                # Styling
 │
 ├── docs/
-│   └── README_Guide_App.md        # Detailed documentation
+│   └── README.md                 # Project documentation
 │
-├── .env                          # Environment variables (secrets)
-├── .gitignore                    # Git ignore rules
+├── assets/                       # Media assets and videos
+├── .env                          # Environment variables (optional)
 ├── requirements.txt              # Python dependencies
-├── README.md                     # This file
 ├── STRUCTURE.md                  # Structure reference
 └── GIT_PUSH_CHECKLIST.md         # Git push guide
 ```

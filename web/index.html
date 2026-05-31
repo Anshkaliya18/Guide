@@ -1,129 +1,551 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D Earth Explorer</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <div class="space-bg"></div>
-    <canvas id="particles"></canvas>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Earth Explorer — Discover the World</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 4rem;
+      padding: 100px 7vw 4rem;
+      position: relative;
+      overflow: hidden;
+    }
 
-    <header class="hero" id="hero">
-      <div class="hero-content">
-        <p class="kicker">3D Earth Explorer</p>
-        <h1>Discover Hidden Gems Around The World</h1>
-        <p class="subtitle">
-          Explore underrated locations, historical landmarks, nature escapes, museums, viewpoints and secret places near you.
-        </p>
-        <div class="hero-cta">
-          <button class="btn btn-primary" id="startExplore">Start Exploring</button>
-          <button class="btn btn-ghost" id="detectLocation">Detect My Location</button>
-        </div>
-      </div>
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 55% 70% at 70% 50%, rgba(201,169,110,0.055) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 50% at 20% 80%, rgba(80,100,160,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
 
-      <div class="hero-globe-wrap">
-        <div id="heroGlobeCanvas" aria-label="hero earth globe"></div>
-      </div>
-    </header>
+    /* Subtle grid lines */
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%);
+    }
 
-    <main class="app-shell" id="appShell">
-      <aside class="panel glass left-panel">
-        <section>
-          <h2>Location</h2>
-          <div class="search-wrap">
-            <input id="locationInput" placeholder="Search city or place..." />
-          </div>
-          <div class="row">
-            <button class="btn btn-soft" id="detectMyLocation">Detect My Location</button>
-            <button class="btn btn-soft">Use Coordinates</button>
-          </div>
-        </section>
+    .hero-content { position: relative; z-index: 1; }
 
-        <section>
-          <h2>Radius</h2>
-          <label for="radius" class="slider-label">Search radius: <span id="radiusValue">15km</span></label>
-          <input type="range" min="1" max="50" value="15" id="radius" />
-        </section>
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 1.75rem;
+    }
 
-        <section>
-          <h2>Categories</h2>
-          <div class="chips" id="chips"></div>
-        </section>
+    .hero-tag::before {
+      content: '';
+      display: block;
+      width: 28px;
+      height: 1px;
+      background: var(--gold);
+    }
 
-        <button class="btn btn-primary discover" id="discoverBtn">DISCOVER HIDDEN GEMS</button>
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 5.5vw, 5rem);
+      font-weight: 300;
+      line-height: 1.08;
+      letter-spacing: -0.015em;
+      color: var(--text);
+      margin-bottom: 1.5rem;
+    }
 
-        <section>
-          <h2>Statistics</h2>
-          <div class="stats">
-            <article><span id="statFound">0</span><p>Places Found</p></article>
-            <article><span id="statCountries">0</span><p>Countries Explored</p></article>
-            <article><span id="statSaved">0</span><p>Saved Locations</p></article>
-            <article><span id="statTrips">0</span><p>Discoveries Made</p></article>
-          </div>
-        </section>
-      </aside>
+    .hero h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
 
-      <section class="globe-stage glass">
-        <div class="stage-stars"></div>
-        <div class="main-globe" id="mainGlobe">
-          <div id="globeCanvas" aria-label="location selection earth globe"></div>
-        </div>
-        <div class="globe-hint">Drag • Rotate • Zoom • Double Click to Focus</div>
-      </section>
+    .hero p {
+      color: var(--text-2);
+      font-size: 1rem;
+      max-width: 48ch;
+      line-height: 1.75;
+      margin-bottom: 2.5rem;
+    }
 
-      <aside class="panel glass right-panel">
-        <div class="panel-header">
-          <h2>Discovery Results</h2>
-          <button class="btn btn-soft" id="savedTab">Saved Places</button>
-        </div>
+    .hero-cta { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
-        <div id="loadingState" class="loading-state hidden">
-          <div class="loader-ring"></div>
-          <p>Scanning nearby hidden gems...</p>
-          <div class="progress"><div id="progressFill"></div></div>
-        </div>
+    .hero-note {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: var(--text-3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-        <div id="emptyState" class="empty-state">
-          <div class="empty-earth"></div>
-          <p>No hidden gems found in this area.</p>
-          <button class="btn btn-soft" id="expandRadius">Expand Search Radius</button>
-        </div>
+    .hero-note::before {
+      content: '✦';
+      color: var(--gold);
+      font-size: 10px;
+    }
 
-        <div id="results" class="results"></div>
-      </aside>
-    </main>
+    /* Globe container */
+    .hero-globe-wrap {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-    <div class="mobile-nav">
-      <button id="mobileControls">Controls</button>
-      <button id="mobileDiscover">Discover</button>
-      <button id="mobileResults">Results</button>
+    #heroGlobeCanvas {
+      width: min(520px, 80vw);
+      aspect-ratio: 1;
+      overflow: hidden;
+    }
+
+    #heroGlobeCanvas canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+
+    /* ── FEATURES ── */
+    .features {
+      padding: 6rem 7vw;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-tag::after {
+      content: '';
+      flex: 1;
+      max-width: 30px;
+      height: 1px;
+      background: var(--gold-mid);
+    }
+
+    .features h2 {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 3vw, 2.8rem);
+      font-weight: 300;
+      color: var(--text);
+      margin-bottom: 3.5rem;
+      max-width: 40ch;
+      line-height: 1.2;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .feature-item {
+      background: var(--bg-1);
+      padding: 2rem 1.75rem;
+      transition: background 0.2s;
+    }
+
+    .feature-item:hover { background: var(--bg-2); }
+
+    .feature-icon {
+      font-size: 1.3rem;
+      margin-bottom: 1.25rem;
+      display: block;
+      color: var(--gold);
+      opacity: 0.8;
+    }
+
+    .feature-item h3 {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: var(--text);
+      margin-bottom: 0.65rem;
+    }
+
+    .feature-item p {
+      font-size: 0.85rem;
+      color: var(--text-2);
+      line-height: 1.65;
+    }
+
+    /* ── CATEGORIES SHOWCASE ── */
+    .categories-section {
+      padding: 5rem 7vw;
+      border-top: 1px solid var(--border);
+    }
+
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.6rem;
+      margin-top: 2.5rem;
+    }
+
+    .cat-card {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .cat-card:hover {
+      border-color: var(--border-3);
+      background: var(--bg-2);
+      transform: translateY(-2px);
+    }
+
+    .cat-symbol {
+      font-size: 1.6rem;
+      margin-bottom: 0.75rem;
+      display: block;
+    }
+
+    .cat-name {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+    }
+
+    .cat-count {
+      font-size: 0.72rem;
+      color: var(--text-3);
+    }
+
+    /* ── CTA BAND ── */
+    .cta-band {
+      margin: 0 7vw 5rem;
+      background: var(--bg-1);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-xl);
+      padding: 3.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      flex-wrap: wrap;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-band::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(201,169,110,0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta-band h2 {
+      font-family: var(--font-display);
+      font-size: clamp(1.5rem, 2.5vw, 2.2rem);
+      font-weight: 300;
+      color: var(--text);
+      max-width: 40ch;
+      line-height: 1.25;
+    }
+
+    .cta-band h2 em { font-style: italic; color: var(--gold); }
+
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; text-align: center; padding: 90px 5vw 3rem; }
+      .hero-cta, .hero-note { justify-content: center; }
+      .hero h1, .hero p { margin-inline: auto; }
+      .hero-globe-wrap { order: -1; }
+      .features-grid { grid-template-columns: 1fr; }
+      .cat-grid { grid-template-columns: 1fr 1fr; }
+      .cta-band { text-align: center; justify-content: center; }
+    }
+
+    @media (max-width: 600px) {
+      .cat-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  /* Loader styles */
+.page-loader{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.loader{border:4px solid var(--bg-2);border-top:4px solid var(--gold);border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.hidden{display:none;}
+/* Page transition */
+.page-transition{opacity:0;transition:opacity .4s ease;}
+.page-loaded .page-transition{opacity:1;}
+</style>
+</head>
+<body>
+<div class="page-loader"><div class="loader"></div></div>
+
+<!-- NAV -->
+<nav class="nav">
+  <a href="index.html" class="nav-logo"><span class="dot"></span>Earth Explorer</a>
+  <ul class="nav-links">
+    <li><a href="index.html" class="active"><span class="nav-icon">◎</span> Home</a></li>
+    <li><a href="explore.html"><span class="nav-icon">✦</span> Explore</a></li>
+    <li><a href="saved.html"><span class="nav-icon">◈</span> Saved</a></li>
+    <li><a href="about.html"><span class="nav-icon">◉</span> About</a></li>
+  </ul>
+  <a href="explore.html" class="nav-cta">Open Explorer</a>
+  <button class="nav-hamburger" id="navHam" aria-label="Menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="index.html" class="active">◎ &nbsp;Home</a>
+  <a href="explore.html">✦ &nbsp;Explore</a>
+  <a href="saved.html">◈ &nbsp;Saved</a>
+  <a href="about.html">◉ &nbsp;About</a>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="hero-grid"></div>
+
+  <div class="hero-content anim-up">
+    <div class="hero-tag">3D Earth Explorer</div>
+    <h1 class="title-3d">Discover <em>hidden gems</em><br>around the world</h1>
+    <p>Explore underrated locations, historical landmarks, nature escapes, and secret places — visualised live on a rotating 3D globe.</p>
+    <div class="hero-cta">
+      <a href="explore.html" class="btn btn-gold">Start exploring</a>
+      <a href="about.html" class="btn btn-outline">Learn more</a>
     </div>
+    <p class="hero-note">No account needed. Free to use.</p>
+  </div>
 
-    <div class="modal hidden" id="detailModal">
-      <div class="modal-card glass">
-        <button id="closeModal" class="close">×</button>
-        <div class="banner"></div>
-        <h3 id="modalTitle"></h3>
-        <p id="modalMeta"></p>
-        <p id="modalDesc"></p>
-        <div class="row">
-          <button class="btn btn-primary">Fly To Location</button>
-          <button class="btn btn-soft">Open Maps</button>
-          <button class="btn btn-soft" id="saveFavorite">Save Favorite</button>
-        </div>
-      </div>
+  <div class="hero-globe-wrap anim-up-2">
+    <div id="heroGlobeCanvas" aria-label="Rotating 3D globe"></div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div style="padding:0 7vw 5rem" class="anim-up-3">
+  <div class="stat-strip">
+    <div class="stat-item">
+      <span class="stat-num">2 400+</span>
+      <span class="stat-lbl">Hidden gems</span>
     </div>
+    <div class="stat-item">
+      <span class="stat-num">190</span>
+      <span class="stat-lbl">Countries</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">8</span>
+      <span class="stat-lbl">Categories</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">Free</span>
+      <span class="stat-lbl">Always</span>
+    </div>
+  </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.26.5/dist/globe.gl.min.js"></script>
-    <script src="./app.js"></script>
-  </body>
+<!-- FEATURES -->
+<section class="features">
+  <div class="section-tag">What we offer</div>
+  <h2>Everything you need to explore off the beaten path</h2>
+  <div class="features-grid">
+    <div class="feature-item">
+      <span class="feature-icon">◎</span>
+      <h3>3D Globe Visualisation</h3>
+      <p>Interact with a real-time 3D Earth. Rotate, zoom, and fly to any location on the planet with silky smooth controls.</p>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">✦</span>
+      <h3>Smart Discovery</h3>
+      <p>Filter by category, radius, and location. Find nature escapes, historic quarters, museums, markets, and more.</p>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">◈</span>
+      <h3>Save Favourites</h3>
+      <p>Bookmark places you love. Your saved locations are always one click away on your personal Saved page.</p>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">⬡</span>
+      <h3>Arc Connections</h3>
+      <p>See animated arcs between your position and each discovered gem — understand distances and directions at a glance.</p>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">◉</span>
+      <h3>Radius Control</h3>
+      <p>Narrow your search to a short walk or broaden it to a full day's journey. Granular radius control from 1 km to 50 km.</p>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">❋</span>
+      <h3>8 Place Categories</h3>
+      <p>From Religious sites and Museums to Parks and Viewpoints — every type of memorable place is covered.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CATEGORIES -->
+<section class="categories-section">
+  <div class="section-tag">Categories</div>
+  <h2 style="font-family:var(--font-display);font-size:clamp(1.8rem,3vw,2.4rem);font-weight:300;color:var(--text);margin-bottom:0">Browse by type</h2>
+  <div class="cat-grid">
+    <a href="explore.html" class="cat-card">
+      <span class="cat-symbol">🏔</span>
+      <div class="cat-name">Nature</div>
+      <div class="cat-count">Cliffs, forests, lakes</div>
+    </a>
+    <a href="explore.html" class="cat-card">
+      <span class="cat-symbol">⬡</span>
+      <div class="cat-name">Historic</div>
+      <div class="cat-count">Ancient districts</div>
+    </a>
+    <a href="explore.html" class="cat-card">
+      <span class="cat-symbol">▣</span>
+      <div class="cat-name">Museums</div>
+      <div class="cat-count">Art, science, culture</div>
+    </a>
+    <a href="explore.html" class="cat-card">
+      <span class="cat-symbol">◎</span>
+      <div class="cat-name">Markets</div>
+      <div class="cat-count">Bazaars, night markets</div>
+    </a>
+    <a href="explore.html" class="cat-card">
+      <span class="cat-symbol">✧</span>
+      <div class="cat-name">Religious</div>
+      <div class="cat-count">Temples, sanctuaries</div>
+    </a>
+    <a href="explore.html" class="cat-card">
+      <span class="cat-symbol">◉</span>
+      <div class="cat-name">Viewpoints</div>
+      <div class="cat-count">Panoramas, ridges</div>
+    </a>
+    <a href="explore.html" class="cat-card">
+      <span class="cat-symbol">❋</span>
+      <div class="cat-name">Parks</div>
+      <div class="cat-count">Gardens, reserves</div>
+    </a>
+    <a href="explore.html" class="cat-card">
+      <span class="cat-symbol">✦</span>
+      <div class="cat-name">Tourism</div>
+      <div class="cat-count">Must-see landmarks</div>
+    </a>
+  </div>
+</section>
+
+<!-- CTA BAND -->
+<div class="cta-band">
+  <h2>Ready to find your next <em>hidden gem?</em></h2>
+  <a href="explore.html" class="btn btn-gold" style="font-size:0.9rem;padding:0.85rem 2rem;flex-shrink:0">Open the Explorer →</a>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-logo"><span style="color:var(--gold)">◎</span>&nbsp;Earth Explorer</div>
+  <ul class="footer-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="explore.html">Explore</a></li>
+    <li><a href="saved.html">Saved</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul>
+  <span class="footer-copy">© 2025 Earth Explorer</span>
+</footer>
+
+<div class="toast"><span class="toast-dot"></span><span class="toast-msg"></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2.26.5/dist/globe.gl.min.js"></script>
+<script src="nav.js"></script>
+<script>
+const EARTH = [
+  "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg",
+  "https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/img/earth-blue-marble.jpg"
+];
+const BUMP = [
+  "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png",
+  "https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/img/earth-topology.png"
+];
+
+async function firstOk(urls) {
+  for (const u of urls) {
+    const ok = await new Promise(res => {
+      const i = new Image();
+      i.crossOrigin = 'anonymous';
+      i.onload = () => res(true);
+      i.onerror = () => res(false);
+      i.src = u;
+    });
+    if (ok) return u;
+  }
+  return '';
+}
+
+(async () => {
+  const el = document.getElementById('heroGlobeCanvas');
+  if (!el || typeof Globe !== 'function') return;
+  const [e, b] = await Promise.all([firstOk(EARTH), firstOk(BUMP)]);
+  const w = Math.max(1, el.offsetWidth || 480);
+  const g = Globe({ width: w, height: w, animateIn: false })(el)
+    .globeImageUrl(e)
+    .bumpImageUrl(b)
+    .atmosphereColor('#c9a96e')
+    .atmosphereAltitude(0.16);
+  const c = g.controls();
+  c.autoRotate = true;
+  c.autoRotateSpeed = 0.7;
+  c.enableZoom = false;
+  c.enablePan = false;
+  c.enableRotate = false;
+  g.onGlobeReady(() => {
+    try {
+      const r = g.renderer();
+      r.setClearColor(0x000000, 0);
+      r.outputColorSpace = THREE.SRGBColorSpace;
+      r.toneMapping = THREE.ACESFilmicToneMapping;
+      r.toneMappingExposure = 1.1;
+      g.pointOfView({ lat: 20, lng: 20, altitude: 1.75 }, 0);
+    } catch(_) {}
+  });
+  const ro = new ResizeObserver(() => {
+    const s = Math.max(1, el.offsetWidth || 480);
+    g.width(s); g.height(s);
+  });
+  ro.observe(el);
+})();
+</script>
+<script>
+window.addEventListener('load',()=>{document.body.classList.add('page-loaded');
+  const l=document.querySelector('.page-loader');
+  if(l) l.classList.add('hidden');
+});
+</script>
+</body>
 </html>

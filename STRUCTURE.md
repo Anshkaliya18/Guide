@@ -5,7 +5,7 @@
 After reorganization, your project follows this professional structure:
 
 ```
-3d-earth-explorer/
+Guide/
 ├── src/                          ← Production code
 │   └── guide_app.py             ← Main application
 │
@@ -15,20 +15,26 @@ After reorganization, your project follows this professional structure:
 ├── config/                       ← Configuration
 │   └── config.json              ← API & app settings
 │
-├── web/                         ← Web interface (optional)
+├── web/                         ← Web interface static files
 │   ├── index.html
-│   ├── app.js
+│   ├── about.html
+│   ├── explore.html
+│   ├── saved.html
+│   ├── about.js
+│   ├── explore.js
+│   ├── saved.js
+│   ├── nav.js
 │   └── styles.css
 │
 ├── docs/                        ← Documentation
-│   └── README_Guide_App.md      ← Detailed docs
+│   └── README.md                ← Detailed docs
 │
 ├── archive/                     ← Old versions (if needed)
 ├── assets/                      ← Static assets
 │
 ├── .env                         ← Secrets (gitignored)
 ├── requirements.txt             ← Dependencies
-├── README.md                    ← Quick start guide
+├── GIT_PUSH_CHECKLIST.md        ← Push checklist
 └── .gitignore                   ← Git rules
 ```
 
