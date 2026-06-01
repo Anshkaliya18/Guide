@@ -910,7 +910,7 @@ video{
 
 .feature-item,
 .story-card,
-.place-card {
+.place-card:not(.saved-card) {
   opacity: 0;
   transform: translateY(20px);
 }
@@ -923,4 +923,204 @@ video{
   transition:
     opacity .7s ease,
     transform .7s cubic-bezier(.22,1,.36,1);
+}
+
+#savedResults {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
+}
+
+@keyframes savedCardIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── SC2: Premium Saved Card ─────────────────────────────────── */
+.saved-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.025);
+  backdrop-filter: blur(8px);
+  /* staggered entry animation — delay set via style attribute */
+  opacity: 0;
+  animation: savedCardIn 0.52s cubic-bezier(.22,1,.36,1) forwards;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.3s ease,
+    transform 0.35s cubic-bezier(.22,1,.36,1);
+}
+.saved-card:hover {
+  border-color: rgba(201,169,110,0.22);
+  box-shadow: 0 10px 36px rgba(0,0,0,0.32), 0 0 0 1px rgba(201,169,110,0.07);
+  transform: translateY(-4px) !important;
+}
+
+/* Thin left-edge accent bar */
+.sc2-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 14px 0 0 14px;
+  transition: opacity 0.25s;
+}
+.saved-card:hover .sc2-bar {
+  opacity: 0.45 !important;
+}
+
+.sc2-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 1rem 1rem 1rem 1.1rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* Index number */
+.sc2-num {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+  min-width: 22px;
+  padding-top: 0.12rem;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.sc2-content {
+  flex: 1;
+  min-width: 0;
+  padding-right: 0.6rem;
+}
+
+.sc2-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.sc2-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.2rem 0.6rem 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: var(--cb);
+  border: 1px solid var(--cbr);
+  color: var(--cc);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.sc2-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.sc2-dist {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc2-name {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.2;
+  margin: 0 0 0.35rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sc2-desc {
+  font-size: 0.8rem;
+  color: var(--text-2);
+  line-height: 1.58;
+  margin: 0 0 0.5rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sc2-coords {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  background: rgba(255,255,255,0.04);
+  padding: 0.2rem 0.55rem;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+}
+.sc2-coords svg {
+  color: var(--gold);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+/* Action column */
+.sc2-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sc2-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s;
+  color: var(--text-3);
+}
+.sc2-btn:hover {
+  transform: scale(1.1);
+}
+
+.sc2-btn-fly:hover {
+  background: var(--gold-dim);
+  border-color: rgba(201,169,110,0.4);
+  color: var(--gold);
+}
+
+.sc2-btn-maps:hover {
+  background: rgba(80,140,200,0.1);
+  border-color: rgba(80,140,200,0.3);
+  color: #5090c8;
+}
+
+.sc2-btn-remove:hover {
+  background: rgba(224,112,112,0.1);
+  border-color: rgba(224,112,112,0.35);
+  color: #e07070;
 }

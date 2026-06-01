@@ -111,7 +111,7 @@ document.querySelectorAll('a[href]').forEach(link => {
 });
 
 /* Reveal animation */
-const revealObserver = new IntersectionObserver(entries => {
+const revealObserver = window.revealObserver = new IntersectionObserver(entries => {
   entries.forEach(entry => {
     if (entry.isIntersecting) {
       entry.target.classList.add('visible');

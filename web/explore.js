@@ -236,29 +236,28 @@ function openModal(place) {
 }
 
 function drawGlobeMarkers(origin, places) {
-  if (!globe || !origin) return;
+  if (!globe || !origin) {
+    console.warn('drawGlobeMarkers: globe or origin missing', { globe: !!globe, origin: !!origin });
+    return;
+  }
 
-  const points = [
-    {
-      lat: origin.lat,
-      lng: origin.lng,
-      name: origin.label || 'Selected location',
-      cat: 'origin',
-      color: '#c9a96e',
-      r: 0.55,
-      alt: 0.05,
-    },
-    ...places.map(p => ({
-      lat: Number(p.lat),
-      lng: Number(p.lng),
-      name: p.name,
-      cat: p.category,
-      color: '#e8e0d0',
-      r: 0.22,
-      alt: 0.012,
-      dist: `${placeDistance(p).toFixed ? placeDistance(p).toFixed(2) : placeDistance(p)} km`,
-    })),
-  ];
+  console.log('📍 Drawing markers for origin:', origin);
+
+  // Clear any existing markers/points first
+  globe.pointsData([]);
+  globe.arcsData([]);
+
+  // Place dot markers only for discovered gems (not origin — origin uses 3D pin)
+  const points = places.map(p => ({
+    lat: Number(p.lat),
+    lng: Number(p.lng),
+    name: p.name,
+    cat: p.category,
+    color: '#e8e0d0',
+    r: 0.22,
+    alt: 0.012,
+    dist: `${placeDistance(p).toFixed ? placeDistance(p).toFixed(2) : placeDistance(p)} km`,
+  }));
 
   globe
     .pointsData(points)
@@ -290,6 +289,9 @@ function drawGlobeMarkers(origin, places) {
     .arcDashGap(0.2)
     .arcDashAnimateTime(2000)
     .arcStroke(0.45);
+
+  // Place the red 3D pin at origin
+  addRedPinToScene(origin.lat, origin.lng);
 }
 
 function pauseRotation(ms = 4000) {
@@ -300,6 +302,7 @@ function pauseRotation(ms = 4000) {
   }, ms);
 }
 
+// ── Texture URL lists ─────────────────────────────────────────────────────────
 const EARTH_URLS = [
   'https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg',
   'https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/img/earth-blue-marble.jpg',
@@ -308,13 +311,23 @@ const BUMP_URLS = [
   'https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png',
   'https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/img/earth-topology.png',
 ];
+// Cloud texture: globe.gl official example clouds.png — 4.8 MB RGBA PNG with
+// pre-baked alpha channel (white clouds, black = transparent).  Mirrors ordered
+// by reliability; first successful load wins.
+const CLOUD_URLS = [
+  // Primary: official globe.gl example repo (GitHub raw, no CDN rewrite)
+  'https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/clouds/clouds.png',
+  // Fallbacks via rawgit-style mirrors
+  'https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-clouds.png',
+];
 
+// ── Utility: first URL that loads as an <img> ──────────────────────────────
 async function firstOk(urls) {
   for (const url of urls) {
     const ok = await new Promise(resolve => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(true);
+      img.onload  = () => resolve(true);
       img.onerror = () => resolve(false);
       img.src = url;
     });
@@ -323,42 +336,275 @@ async function firstOk(urls) {
   return '';
 }
 
+// Red 3D pin HTML label used for the origin marker
+function originPinLabel(name) {
+  return `
+    <div style="display:flex;flex-direction:column;align-items:center;pointer-events:none">
+      <div style="
+        background:rgba(10,11,13,0.92);
+        border:1px solid rgba(201,169,110,0.45);
+        border-radius:8px;
+        padding:5px 10px;
+        font-family:'Outfit',sans-serif;
+        font-size:11px;
+        color:#eeeade;
+        white-space:nowrap;
+        margin-bottom:4px;
+        box-shadow:0 4px 16px rgba(0,0,0,0.4)
+      ">
+        <b style="color:#c9a96e">📍 ${name}</b>
+      </div>
+    </div>
+  `;
+}
+
+// Build a THREE.js red 3D pin mesh and add it to the globe scene
+function addRedPinToScene(lat, lng, altitudeKm = 0) {
+  if (!globe) return;
+  try {
+    const scene = globe.scene();
+
+    // Remove any existing pin
+    const old = scene.getObjectByName('__origin_pin__');
+    if (old) scene.remove(old);
+
+    const group = new THREE.Group();
+    group.name = '__origin_pin__';
+
+    // ── Shadow disc on surface (lies flat on globe surface) ──
+    const shadowGeo = new THREE.CircleGeometry(1.6, 24);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.24,
+      side: THREE.DoubleSide
+    });
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+    shadow.position.set(0, 0, 0);
+
+    // ── Pin body (tapered cylinder) pointing outward ──
+    const bodyGeo = new THREE.CylinderGeometry(0.0, 1.2, 4.5, 16);
+    const bodyMat = new THREE.MeshPhongMaterial({
+      color: 0xe02020,
+      emissive: 0x660000,
+      shininess: 120,
+      specular: 0xff8888,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.set(0, 2.25, 0);
+
+    // ── Pin head (sphere) ──
+    const headGeo = new THREE.SphereGeometry(1.5, 20, 20);
+    const headMat = new THREE.MeshPhongMaterial({
+      color: 0xff3333,
+      emissive: 0x990000,
+      shininess: 180,
+      specular: 0xffaaaa,
+    });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.set(0, 5.5, 0);
+
+    // Keep the pin fully red — no white glint marker
+    group.add(shadow, body, head);
+
+    // Use globe.gl's coordinate helper so the pin lands on the exact position.
+    const coords = (typeof globe.getCoords === 'function')
+      ? globe.getCoords(lat, lng, altitudeKm)
+      : null;
+
+    if (coords && Number.isFinite(coords.x) && Number.isFinite(coords.y) && Number.isFinite(coords.z)) {
+      group.position.set(coords.x, coords.y, coords.z);
+    } else {
+      // Fallback for older builds: manual spherical conversion.
+      const GLOBE_RADIUS = (typeof globe.getGlobeRadius === 'function') ? globe.getGlobeRadius() : 100;
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = lng * (Math.PI / 180);
+      const r = GLOBE_RADIUS * (1 + (altitudeKm || 0));
+      const surfaceX = -(r * Math.sin(phi) * Math.cos(theta));
+      const surfaceY =  (r * Math.cos(phi));
+      const surfaceZ =  (r * Math.sin(phi) * Math.sin(theta));
+      group.position.set(surfaceX, surfaceY, surfaceZ);
+    }
+
+    // Create proper rotation: make local +Y axis point outward from globe center
+    const outwardDir = new THREE.Vector3(group.position.x, group.position.y, group.position.z).normalize();
+    const defaultDir = new THREE.Vector3(0, 1, 0);
+    const quat = new THREE.Quaternion();
+    quat.setFromUnitVectors(defaultDir, outwardDir);
+    group.quaternion.copy(quat);
+
+    scene.add(group);
+    console.log('🔴 Red pin placed at lat:', lat, 'lng:', lng, 'pos:', group.position.toArray());
+    window.__originPinGroup__ = group;
+  } catch(e) {
+    console.warn('3D pin error:', e);
+  }
+}
+
+// ── Cloud system ──────────────────────────────────────────────────────────────
+// Rotation speed in radians per frame (at ~60fps ≈ 10° per real-world minute,
+// slightly faster than the globe's own autoRotate so clouds visibly drift).
+const CLOUD_ROT_SPEED = 0.00012; // rad/frame
+// Altitude above globe surface as a fraction of globe radius (0.4%)
+const CLOUD_ALT = 0.004;
+// Module-level ref so we can clean up on re-init
+let _cloudMesh = null;
+let _cloudRAF  = null;
+
+/**
+ * attachCloudLayer()
+ * Adds a semi-transparent cloud sphere just above the globe surface.
+ * Uses globe.getGlobeRadius() so it works regardless of globe.gl version.
+ * The texture (RGBA PNG) has transparency pre-baked into the alpha channel —
+ * no need for an alphaMap hack.  Loaded inside the TextureLoader callback to
+ * ensure colorSpace is set AFTER the texture object exists.
+ * Clouds auto-rotate for smooth, continuous animation.
+ */
+function attachCloudLayer() {
+  if (!globe) return;
+  try {
+    const scene      = globe.scene();
+    const globeR     = (typeof globe.getGlobeRadius === 'function')
+                        ? globe.getGlobeRadius()
+                        : 100; // globe.gl internal default
+
+    // Remove any previous cloud mesh (e.g. on re-init)
+    if (_cloudMesh) { scene.remove(_cloudMesh); _cloudMesh = null; }
+    if (_cloudRAF)  { cancelAnimationFrame(_cloudRAF); _cloudRAF = null; }
+
+    // Sphere slightly outside the Earth sphere → no z-fighting
+    // Use 75 segments: good quality without mobile GPU strain
+    const cloudGeo = new THREE.SphereGeometry(
+      globeR * (1 + CLOUD_ALT),
+      75, 75
+    );
+
+    // Load primary cloud texture — properties set inside onLoad callback
+    // so they are applied after the texture object is fully constructed
+    new THREE.TextureLoader().load(
+      CLOUD_URLS[0],
+      /* onLoad */ (tex) => {
+        // r152 uses SRGBColorSpace; older THREE used sRGBEncoding
+        if (THREE.SRGBColorSpace !== undefined) {
+          tex.colorSpace = THREE.SRGBColorSpace;
+        } else if (tex.encoding !== undefined) {
+          tex.encoding = THREE.sRGBEncoding;  // r151 and below
+        }
+
+        const cloudMat = new THREE.MeshBasicMaterial({
+          map:         tex,
+          color:       0xa8ddff,
+          transparent: true,
+          opacity:     0.90,
+          // depthWrite false prevents the cloud sphere from occluding objects
+          // that are further from the camera in the depth buffer
+          depthWrite:  false,
+          // renderOrder > 0 means it renders after the opaque globe mesh,
+          // eliminating any residual z-fighting
+          side:        THREE.FrontSide,
+        });
+
+        _cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+        _cloudMesh.name = '__clouds__';
+        _cloudMesh.renderOrder = 1;   // draw after opaque globe surface
+
+        scene.add(_cloudMesh);
+        console.info('☁️  Cloud layer active — globe radius:', globeR.toFixed(1));
+
+        // Dedicated animation loop — runs independently of globe autoRotate
+        // so clouds keep drifting even when autoRotate is paused by user input
+        function rotateClouds() {
+          _cloudMesh.rotation.y += CLOUD_ROT_SPEED;
+          _cloudRAF = requestAnimationFrame(rotateClouds);
+        }
+        rotateClouds();
+      },
+      /* onProgress */ undefined,
+      /* onError */ (err) => {
+        console.warn('☁️  Primary cloud texture failed, trying fallback…', err);
+        // Try second URL if first failed
+        const fallback = CLOUD_URLS[1];
+        if (!fallback) return;
+        new THREE.TextureLoader().load(fallback, (tex2) => {
+          if (THREE.SRGBColorSpace !== undefined) tex2.colorSpace = THREE.SRGBColorSpace;
+          const mat2 = new THREE.MeshBasicMaterial({
+            map: tex2,
+            color: 0xa8ddff,
+            transparent: true,
+            opacity: 0.90,
+            depthWrite: false,
+            side: THREE.FrontSide
+          });
+          _cloudMesh = new THREE.Mesh(cloudGeo, mat2);
+          _cloudMesh.name = '__clouds__';
+          _cloudMesh.renderOrder = 1;
+          scene.add(_cloudMesh);
+          function rotateClouds2() {
+            _cloudMesh.rotation.y += CLOUD_ROT_SPEED;
+            _cloudRAF = requestAnimationFrame(rotateClouds2);
+          }
+          rotateClouds2();
+          console.info('☁️  Cloud layer active (fallback URL)');
+        });
+      }
+    );
+  } catch (e) {
+    console.warn('attachCloudLayer error:', e);
+  }
+}
+
 async function initGlobe() {
   if (typeof Globe !== 'function' || !$globeCanvas || !$mainGlobe) return;
+
+  // Fetch Earth + bump textures in parallel; clouds attach after globe is ready
   const [earth, bump] = await Promise.all([firstOk(EARTH_URLS), firstOk(BUMP_URLS)]);
   const size = Math.max(1, $mainGlobe.offsetWidth || 500);
 
   globe = Globe({ width: size, height: size })($globeCanvas)
     .globeImageUrl(earth)
     .bumpImageUrl(bump)
-    .atmosphereColor('#c9a96e')
+    .atmosphereColor('#5fa8ff')
     .atmosphereAltitude(0.18);
 
   window.globe = globe;
 
   const ctrl = globe.controls();
-  ctrl.autoRotate = true;
+  ctrl.autoRotate      = true;
   ctrl.autoRotateSpeed = 0.35;
-  ctrl.enableZoom = true;
-  ctrl.enablePan = false;
-  ctrl.zoomSpeed = 1.0;
-  ctrl.minDistance = 180;
-  ctrl.maxDistance = 450;
+  ctrl.enableZoom      = true;
+  ctrl.enablePan       = false;
+  ctrl.zoomSpeed       = 1.0;
+  ctrl.minDistance     = 180;
+  ctrl.maxDistance     = 450;
 
   globe.onGlobeReady(() => {
     try {
       const renderer = globe.renderer();
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setClearColor(0x000000, 0);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.0;
-      if (currentOrigin) {
-        globe.pointOfView({ lat: currentOrigin.lat, lng: currentOrigin.lng, altitude: 2.2 }, 1200);
+
+      // Tone-mapping / colour-space (THREE r152+)
+      if (THREE.SRGBColorSpace !== undefined) {
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
       }
-    } catch (_) {}
+      renderer.toneMapping         = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+
+      // ── Attach cloud layer ─────────────────────────────────────────────
+      attachCloudLayer();
+
+      if (currentOrigin) {
+        globe.pointOfView(
+          { lat: currentOrigin.lat, lng: currentOrigin.lng, altitude: 2.2 },
+          1200
+        );
+      }
+    } catch (e) {
+      console.warn('onGlobeReady error:', e);
+    }
   });
 
+  // Keep canvas size in sync with container
   const ro = new ResizeObserver(() => {
     const s = Math.max(1, $mainGlobe.offsetWidth || 500);
     globe.width(s);
@@ -390,6 +636,12 @@ async function detectMyLocation() {
     } catch (err) {
       setOrigin({ label: 'Current location', lat: latitude, lng: longitude }, 'browser');
       showToast('Location detected, but city lookup failed.');
+    }
+
+    // Fly globe to detected location and show the current-position pin immediately
+    if (globe) {
+      globe.pointOfView({ lat: latitude, lng: longitude, altitude: 2.2 }, 1400);
+      addRedPinToScene(latitude, longitude, 0.01);
     }
   }, error => {
     showToast(error.message || 'Unable to detect your location.');

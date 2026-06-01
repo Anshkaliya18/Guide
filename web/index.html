@@ -493,6 +493,15 @@ const BUMP = [
   "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png",
   "https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/img/earth-topology.png"
 ];
+const CLOUD_URLS = [
+  'https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/clouds/clouds.png',
+  'https://raw.githubusercontent.com/vasturiano/three-globe/master/example/img/earth-clouds.png',
+];
+const CLOUD_ROT_SPEED = 0.00012;
+const CLOUD_ALT = 0.004;
+
+let _heroCloudMesh = null;
+let _heroCloudRAF = null;
 
 async function firstOk(urls) {
   for (const u of urls) {
@@ -508,6 +517,84 @@ async function firstOk(urls) {
   return '';
 }
 
+function attachHeroCloudLayer(globe) {
+  if (!globe) return;
+  try {
+    const scene = globe.scene();
+    const globeR = (typeof globe.getGlobeRadius === 'function')
+                    ? globe.getGlobeRadius()
+                    : 100;
+
+    if (_heroCloudMesh) { scene.remove(_heroCloudMesh); _heroCloudMesh = null; }
+    if (_heroCloudRAF) { cancelAnimationFrame(_heroCloudRAF); _heroCloudRAF = null; }
+
+    const cloudGeo = new THREE.SphereGeometry(
+      globeR * (1 + CLOUD_ALT),
+      75, 75
+    );
+
+    new THREE.TextureLoader().load(
+      CLOUD_URLS[0],
+      (tex) => {
+        if (THREE.SRGBColorSpace !== undefined) {
+          tex.colorSpace = THREE.SRGBColorSpace;
+        } else if (tex.encoding !== undefined) {
+          tex.encoding = THREE.sRGBEncoding;
+        }
+
+        const cloudMat = new THREE.MeshBasicMaterial({
+          map: tex,
+          color: 0xa8ddff,
+          transparent: true,
+          opacity: 0.90,
+          depthWrite: false,
+          side: THREE.FrontSide,
+        });
+
+        _heroCloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+        _heroCloudMesh.name = '__hero_clouds__';
+        _heroCloudMesh.renderOrder = 1;
+
+        scene.add(_heroCloudMesh);
+
+        function rotateClouds() {
+          _heroCloudMesh.rotation.y += CLOUD_ROT_SPEED;
+          _heroCloudRAF = requestAnimationFrame(rotateClouds);
+        }
+        rotateClouds();
+      },
+      undefined,
+      (err) => {
+        console.warn('Cloud texture fallback…', err);
+        const fallback = CLOUD_URLS[1];
+        if (!fallback) return;
+        new THREE.TextureLoader().load(fallback, (tex2) => {
+          if (THREE.SRGBColorSpace !== undefined) tex2.colorSpace = THREE.SRGBColorSpace;
+          const mat2 = new THREE.MeshBasicMaterial({
+            map: tex2,
+            color: 0xa8ddff,
+            transparent: true,
+            opacity: 0.90,
+            depthWrite: false,
+            side: THREE.FrontSide
+          });
+          _heroCloudMesh = new THREE.Mesh(cloudGeo, mat2);
+          _heroCloudMesh.name = '__hero_clouds__';
+          _heroCloudMesh.renderOrder = 1;
+          scene.add(_heroCloudMesh);
+          function rotateClouds2() {
+            _heroCloudMesh.rotation.y += CLOUD_ROT_SPEED;
+            _heroCloudRAF = requestAnimationFrame(rotateClouds2);
+          }
+          rotateClouds2();
+        });
+      }
+    );
+  } catch (e) {
+    console.warn('attachHeroCloudLayer error:', e);
+  }
+}
+
 (async () => {
   const el = document.getElementById('heroGlobeCanvas');
   if (!el || typeof Globe !== 'function') return;
@@ -516,8 +603,8 @@ async function firstOk(urls) {
   const g = Globe({ width: w, height: w, animateIn: false })(el)
     .globeImageUrl(e)
     .bumpImageUrl(b)
-    .atmosphereColor('#c9a96e')
-    .atmosphereAltitude(0.16);
+    .atmosphereColor('#5fa8ff')
+    .atmosphereAltitude(0.18);
   const c = g.controls();
   c.autoRotate = true;
   c.autoRotateSpeed = 0.7;
@@ -532,6 +619,7 @@ async function firstOk(urls) {
       r.toneMapping = THREE.ACESFilmicToneMapping;
       r.toneMappingExposure = 1.1;
       g.pointOfView({ lat: 20, lng: 20, altitude: 1.75 }, 0);
+      attachHeroCloudLayer(g);
     } catch(_) {}
   });
   const ro = new ResizeObserver(() => {
