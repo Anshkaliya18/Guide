@@ -436,7 +436,12 @@
         </div>
       </div>
 
-      <div class="results-body" id="savedResults"></div>
+      <div class="results-body" id="savedResults" aria-live="polite">
+        <div class="ee-empty">
+          <div class="ee-empty-orb">◎</div>
+          <p><strong>Loading saved places…</strong><br>Your bookmarked gems will appear here.</p>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -451,14 +456,8 @@
     <span class="footer-copy">© 2025 Earth Explorer</span>
   </footer>
 
-  <script src="nav.js"></script>
-  <script src="saved.js"></script>
-  <script>
-    (() => {
-      const savedPlaces = JSON.parse(localStorage.getItem('ee_saved') || '[]');
-      const count = document.getElementById('savedCount');
-      if (count) count.textContent = String(savedPlaces.length);
-    })();
-  </script>
+  <script src="nav.js" defer></script>
+  <script src="saved.js" defer></script>
+
 </body>
 </html>

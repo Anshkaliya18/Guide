@@ -1,477 +1,500 @@
 """
-Underrated Locations Guide App - OpenRouter Version
-A Python application to find and rate hidden gems near you using OpenRouter API
+Earth Explorer backend server with live geocoding and real OpenStreetMap results.
+
+Run from the Guide/src folder:
+    python guide_app.py
+
+It serves the frontend from ../web and exposes:
+    /api/health
+    /api/geocode
+    /api/reverse
+    /api/search
 """
 
-import requests
+from __future__ import annotations
+
 import json
-import time
-from typing import List, Dict, Optional
-from geopy.distance import geodesic
-from geopy.geocoders import Nominatim
 import os
-import sys
+import re
+from dataclasses import dataclass
+from http import HTTPStatus
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import parse_qs, urlparse
 
-class UnderratedGuideApp:
-    def __init__(self, api_key: str = None, config_file: str = "config/config.json"):
-        """
-        Initialize the Guide app with OpenRouter API key and configuration
+import requests
+from geopy.distance import geodesic
 
-        Args:
-            api_key: Your OpenRouter API key
-            config_file: Path to configuration JSON file
-        """
-        self.config = self.load_config(config_file)
-        self.api_settings = self.config.get("api", {})
-        self.search_settings = self.config.get("search_settings", {})
-        self.categories = self.config.get("categories", {})
-        self.boost_factors = self.config.get("boost_factors", {})
+BASE_DIR = Path(__file__).resolve().parent.parent
+WEB_DIR = BASE_DIR / "web"
+HOST = os.getenv("HOST", "127.0.0.1")
+PORT = int(os.getenv("PORT", "8000"))
 
-        self.api_key = api_key or self.api_settings.get("api_key") or self.config.get("api_key") or os.getenv("OPENROUTER_API_KEY")
-        if not self.api_key:
-            raise ValueError("OpenRouter API key is required. Set OPENROUTER_API_KEY or add api_key to config.json.")
+USER_AGENT = os.getenv(
+    "EARTH_EXPLORER_USER_AGENT",
+    "EarthExplorer/1.0 (OpenStreetMap geocoder + Overpass client)",
+)
 
-        self.geolocator = Nominatim(user_agent="underrated-guide-openrouter")
-        self.base_url = self.api_settings.get("base_url", "https://openrouter.ai/api/v1")
-        self.model = self.api_settings.get("model", "openai/gpt-oss-120b:free")
-        self.temperature = self.api_settings.get("temperature", 0.3)
-        self.max_tokens = self.api_settings.get("max_tokens", 500)
-        self.headers_config = self.api_settings.get("headers", {})
+NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-    def load_config(self, config_file: str) -> Dict:
-        """Load configuration from JSON file."""
-        try:
-            with open(config_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            print(f"Warning: {config_file} not found, using defaults")
-            return self.get_default_config()
-        except json.JSONDecodeError as e:
-            print(f"Error parsing {config_file}: {e}")
-            return self.get_default_config()
+CATEGORY_ICONS = {
+    "Tourism": "✦",
+    "Historic": "⬡",
+    "Nature": "🏔",
+    "Park": "❋",
+    "Museum": "▣",
+    "Market": "◎",
+    "Viewpoint": "◉",
+    "Religious": "✧",
+    "Other": "◌",
+}
 
-    def get_default_config(self) -> Dict:
-        """Return fallback configuration values."""
-        return {
-            "api": {
-                "provider": "openrouter",
-                "base_url": "https://openrouter.ai/api/v1",
-                "model": "openai/gpt-oss-120b:free",
-                "temperature": 0.3,
-                "max_tokens": 500,
-                "headers": {}
-            },
-            "search_settings": {
-                "default_radius": 5000,
-                "default_min_score": 0.6,
-                "max_results": 10,
-                    "rate_limit_pause": 2
-            },
-            "categories": {
-                "natural_sights": ["river", "stream", "waterfall", "lake", "pond", "forest", "tree"],
-                "viewpoints": ["viewpoint", "lookout", "panorama", "vista"],
-                "water_features": ["river", "stream", "waterfall", "lake", "pond"],
-                "hidden_gems": ["park", "garden", "nature", "trail", "beach", "cove"]
-            },
-            "boost_factors": {
-                "natural": 0.1,
-                "water": 0.15,
-                "viewpoint": 0.12,
-                "hidden_gem": 0.2
-            }
-        }
+CATEGORY_PRIORITY = {
+    "Viewpoint": 0,
+    "Nature": 1,
+    "Park": 2,
+    "Museum": 3,
+    "Historic": 4,
+    "Market": 5,
+    "Religious": 6,
+    "Tourism": 7,
+    "Other": 8,
+}
 
-    def get_user_location(self, address: str) -> tuple:
-        """Convert user address to coordinates."""
-        try:
-            print(f"📍 Geocoding: {address}")
-            location = self.geolocator.geocode(address, timeout=10)
-            if location:
-                print(f"✓ Found coordinates: {location.latitude}, {location.longitude}")
-                return (location.latitude, location.longitude)
-            else:
-                raise ValueError("Location not found")
-        except Exception as e:
-            print(f"❌ Error geocoding: {e}")
+SESSION = requests.Session()
+SESSION.headers.update({"User-Agent": USER_AGENT, "Accept": "application/json"})
+
+
+@dataclass
+class SearchOrigin:
+    label: str
+    lat: float
+    lng: float
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return str(value)
+
+
+def _parse_float(value: Optional[str]) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_int(value: Optional[str], default: int) -> int:
+    parsed = _parse_float(value)
+    if parsed is None:
+        return default
+    return max(1, int(parsed))
+
+
+def _parse_coordinate_pair(text: str) -> Optional[Tuple[float, float]]:
+    if not text:
+        return None
+    match = re.match(r"^\s*(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)\s*$", text.strip())
+    if not match:
+        return None
+    lat = float(match.group(1))
+    lng = float(match.group(2))
+    if -90 <= lat <= 90 and -180 <= lng <= 180:
+        return lat, lng
+    return None
+
+
+def _coord_from_element(element: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+    if "lat" in element and "lon" in element:
+        return float(element["lat"]), float(element["lon"])
+    center = element.get("center") or {}
+    if "lat" in center and "lon" in center:
+        return float(center["lat"]), float(center["lon"])
+    return None
+
+
+def _display_label_from_reverse(data: Dict[str, Any]) -> str:
+    address = data.get("address") or {}
+    pieces = [
+        address.get("city") or address.get("town") or address.get("village") or address.get("hamlet"),
+        address.get("county"),
+        address.get("state") or address.get("region"),
+        address.get("country"),
+    ]
+    return ", ".join([p for p in pieces if p]) or data.get("display_name") or "Selected location"
+
+
+def _build_description(tags: Dict[str, Any], category: str) -> str:
+    if tags.get("description"):
+        return str(tags["description"])
+
+    bits: List[str] = []
+    if category == "Viewpoint":
+        bits.append("Scenic viewpoint from OpenStreetMap")
+    elif category == "Nature":
+        bits.append("Natural place from OpenStreetMap")
+    elif category == "Park":
+        bits.append("Park or green space from OpenStreetMap")
+    elif category == "Museum":
+        bits.append("Museum or cultural point of interest")
+    elif category == "Historic":
+        bits.append("Historic place or heritage site")
+    elif category == "Market":
+        bits.append("Market or local trading spot")
+    elif category == "Religious":
+        bits.append("Religious site or place of worship")
+    elif category == "Tourism":
+        bits.append("Tourism point of interest")
+    else:
+        bits.append("OpenStreetMap point of interest")
+
+    useful = []
+    for key in ("tourism", "historic", "natural", "leisure", "amenity", "name"):
+        if key in tags:
+            useful.append(f"{key}={tags[key]}")
+    if useful:
+        bits.append(" • ".join(useful[:3]))
+    return " — ".join(bits)
+
+
+def _infer_category(tags: Dict[str, Any]) -> str:
+    tourism = str(tags.get("tourism", "")).lower()
+    historic = str(tags.get("historic", "")).lower()
+    leisure = str(tags.get("leisure", "")).lower()
+    natural = str(tags.get("natural", "")).lower()
+    amenity = str(tags.get("amenity", "")).lower()
+    religion = str(tags.get("religion", "")).lower()
+
+    if tourism == "viewpoint" or "viewpoint" in tags or tourism == "lookout":
+        return "Viewpoint"
+    if natural in {"peak", "water", "tree", "wood", "spring", "cave", "beach", "bay", "scrub", "heath", "cliff"}:
+        return "Nature"
+    if leisure in {"park", "garden", "nature_reserve", "pitch", "playground"}:
+        return "Park"
+    if tourism in {"museum", "gallery", "attraction", "artwork"}:
+        return "Museum"
+    if historic:
+        return "Historic"
+    if amenity == "marketplace":
+        return "Market"
+    if amenity == "place_of_worship" or religion:
+        return "Religious"
+    if tourism:
+        return "Tourism"
+    return "Other"
+
+
+def _category_matches(selected: Iterable[str], category: str) -> bool:
+    selected_set = {s.strip().lower() for s in selected if s and str(s).strip()}
+    if not selected_set:
+        return True
+    return category.lower() in selected_set or ("other" in selected_set and category == "Other")
+
+
+class EarthExplorerEngine:
+    def geocode_query(self, query: str) -> Optional[SearchOrigin]:
+        coords = _parse_coordinate_pair(query)
+        if coords:
+            lat, lng = coords
+            reverse = self.reverse_geocode(lat, lng)
+            label = reverse.get("label") if reverse else f"{lat:.5f}, {lng:.5f}"
+            return SearchOrigin(label=label, lat=lat, lng=lng)
+
+        response = SESSION.get(
+            NOMINATIM_SEARCH_URL,
+            params={"q": query, "format": "jsonv2", "limit": 1, "addressdetails": 1},
+            timeout=25,
+        )
+        response.raise_for_status()
+        items = response.json() or []
+        if not items:
             return None
 
-    def search_nearby_locations(self, user_coords: tuple, radius: int = 5000) -> List[Dict]:
-        """Search for nearby locations using OpenStreetMap data."""
-        overpass_url = "https://overpass-api.de/api/interpreter"
+        item = items[0]
+        lat = float(item["lat"])
+        lng = float(item["lon"])
+        label = item.get("display_name") or query
+        return SearchOrigin(label=label, lat=lat, lng=lng)
 
-        # Build query for interesting locations
-        overpass_query = f"""
-        [out:json][timeout:25];
-        (
-          node["natural"~"({'|'.join(['water', 'tree', 'shrub', 'peak'])})"](around:{radius},{user_coords[0]},{user_coords[1]});
-          node["tourism"~"({'|'.join(['viewpoint', 'picnic_site', 'attraction'])})"](around:{radius},{user_coords[0]},{user_coords[1]});
-          node["leisure"~"({'|'.join(['park', 'garden', 'nature_reserve'])})"](around:{radius},{user_coords[0]},{user_coords[1]});
-          way["natural"~"({'|'.join(['water', 'wood'])})"](around:{radius},{user_coords[0]},{user_coords[1]});
-          relation["natural"~"({'|'.join(['water', 'wood'])})"](around:{radius},{user_coords[0]},{user_coords[1]});
-        );
-        out body;
-        >;
-        out skel qt;
-        """
-
-        try:
-            print("📡 Searching OpenStreetMap...")
-            # Build final headers with proper defaults
-            final_headers = {
-                "User-Agent": "UnderratedGuideApp/1.0 (Location discovery tool)",
-                "Accept": "application/json",
-            }
-            # Add config headers but don't override critical ones
-            for key, value in self.headers_config.items():
-                if key.lower() not in ["user-agent", "accept"]:
-                    final_headers[key] = value
-
-            response = requests.post(
-                overpass_url,
-                data=overpass_query,
-                headers=final_headers,
-                timeout=30
-            )
-            response.raise_for_status()
-            elements = response.json().get('elements', [])
-            print(f"✓ Found {len(elements)} potential locations")
-            # Respect optional rate‑limit pause from config (default 1 s)
-            time.sleep(self.search_settings.get('rate_limit_pause', 1))
-            return elements
-        except requests.exceptions.HTTPError as http_err:
-            if response.status_code == 406:
-                print(f"❌ Overpass API rejected request (406). This usually means header mismatch.")
-                print(f"   Response: {response.text[:200]}")
-            else:
-                print(f"❌ Overpass HTTP error: {http_err}")
-            return []
-        except Exception as e:
-            print(f"❌ Error searching locations: {e}")
-            return []
-
-    def analyze_location_with_openrouter(self, location_data: Dict) -> Dict:
-        """Use OpenRouter API to analyze if a location is underrated."""
-        tags = location_data.get('tags', {})
-        name = tags.get('name', 'Unnamed location')
-        location_type = self.detect_location_type(tags)
-
-        prompt = f"""
-        Analyze this location and determine if it's underrated:
-
-        **Location Name**: {name}
-        **Location Type**: {location_type}
-        **Tags**: {json.dumps(tags, indent=2)}
-
-        **Criteria for being underrated**:
-        1. Natural beauty without commercial development
-        2. Scenic value not recognized by tourists
-        3. Peaceful, uncrowded environment
-        4. Local significance but not widely known
-        5. Accessible but not advertised
-
-        **Considerations**:
-        - Fewer tags often indicate less discovery
-        - Natural features are often underrated
-        - Viewpoints with no reviews are likely hidden gems
-        - Water features away from roads are usually peaceful
-
-        Respond with a valid JSON object:
-        {{
-            "is_underrated": true/false,
-            "rating": 0.0-1.0,
-            "reason": "Brief explanation (2-3 sentences)",
-            "category": "natural/viewpoint/water/hidden_gem/other",
-            "potential_score": "Why people should discover this place",
-            "tags_count": {len(tags)}
-        }}
-        """
-
-        try:
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            # Add additional headers from config
-            for key, value in self.headers_config.items():
-                headers[key] = value
-
-            data = {
-                "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": self.temperature,
-                "max_tokens": self.max_tokens
-            }
-
-            print(f"🤖 Analyzing {name} with OpenRouter...")
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=data,
-                timeout=30
-            )
-
-            try:
-                response.raise_for_status()
-            except requests.exceptions.HTTPError as http_err:
-                print(f"❌ OpenRouter API HTTP error for {name}: {http_err} - {response.text}")
-                return self.create_fallback_analysis(tags, location_type)
-
-            try:
-                result = response.json()
-            except ValueError:
-                print(f"❌ OpenRouter response was not valid JSON for {name}: {response.text}")
-                return self.create_fallback_analysis(tags, location_type)
-
-            choices = result.get('choices') or []
-            if not choices or not isinstance(choices, list):
-                print(f"❌ OpenRouter response missing choices for {name}: {result}")
-                return self.create_fallback_analysis(tags, location_type)
-
-            message = choices[0].get('message') if isinstance(choices[0], dict) else None
-            if not message or 'content' not in message:
-                print(f"❌ OpenRouter response missing message content for {name}: {result}")
-                return self.create_fallback_analysis(tags, location_type)
-
-            content = message['content']
-            if isinstance(content, dict):
-                return content
-
-            try:
-                return json.loads(content)
-            except (json.JSONDecodeError, TypeError):
-                print(f"⚠️ OpenRouter returned non-JSON response for {name}: {content}")
-                return self.create_fallback_analysis(tags, location_type)
-
-        except Exception as e:
-            print(f"❌ OpenRouter API error for {name}: {e}")
-            return self.create_fallback_analysis(tags, location_type)
-
-    def create_fallback_analysis(self, tags: Dict, location_type: str) -> Dict:
-        """Create fallback analysis when API fails."""
-        tag_count = len(tags)
-        is_underrated = tag_count < 5 or location_type in ['water', 'natural']
-
+    def reverse_geocode(self, lat: float, lng: float) -> Dict[str, Any]:
+        response = SESSION.get(
+            NOMINATIM_REVERSE_URL,
+            params={"lat": lat, "lon": lng, "format": "jsonv2", "zoom": 18, "addressdetails": 1},
+            timeout=25,
+        )
+        response.raise_for_status()
+        data = response.json() or {}
         return {
-            "is_underrated": is_underrated,
-            "rating": 0.7 if is_underrated else 0.4,
-            "reason": f"{'Likely underrated' if is_underrated else 'Popular location'} based on features and tags",
-            "category": location_type,
-            "potential_score": "Good discovery potential" if is_underrated else "Well-known area",
-            "tags_count": tag_count
+            "label": _display_label_from_reverse(data),
+            "display_name": data.get("display_name") or "",
+            "address": data.get("address") or {},
+            "lat": lat,
+            "lng": lng,
         }
 
-    def detect_location_type(self, tags: Dict) -> str:
-        """Detect location type from tags."""
-        tag_keys = tags.keys()
+    def search_locations(
+        self,
+        origin: SearchOrigin,
+        radius_km: float = 15.0,
+        categories: Optional[List[str]] = None,
+        limit: int = 24,
+    ) -> Dict[str, Any]:
+        radius_m = int(max(1000.0, min(radius_km, 50.0) * 1000.0))
+        categories = categories or []
 
-        if any(key in tag_keys for key in ['water', 'river', 'stream', 'waterfall', 'lake']):
-            return 'water'
-        if any(key in tag_keys for key in ['natural', 'tree', 'forest', 'peak']):
-            return 'natural'
-        if any(key in tag_keys for key in ['viewpoint', 'lookout', 'vista']):
-            return 'viewpoint'
-        if any(key in tag_keys for key in ['park', 'garden', 'leisure']):
-            return 'hidden_gem'
+        overpass_query = f"""
+        [out:json][timeout:30];
+        (
+          node(around:{radius_m},{origin.lat},{origin.lng})["tourism"];
+          way(around:{radius_m},{origin.lat},{origin.lng})["tourism"];
+          relation(around:{radius_m},{origin.lat},{origin.lng})["tourism"];
 
-        return 'other'
+          node(around:{radius_m},{origin.lat},{origin.lng})["historic"];
+          way(around:{radius_m},{origin.lat},{origin.lng})["historic"];
+          relation(around:{radius_m},{origin.lat},{origin.lng})["historic"];
 
-    def calculate_underrated_score(self, location_data: Dict, glm_analysis: Dict) -> float:
-        """Calculate overall underrated score."""
-        base_score = glm_analysis.get('rating', 0.5)
-        category = glm_analysis.get('category', 'natural')
-        tags_count = glm_analysis.get('tags_count', 0)
+          node(around:{radius_m},{origin.lat},{origin.lng})["leisure"];
+          way(around:{radius_m},{origin.lat},{origin.lng})["leisure"];
+          relation(around:{radius_m},{origin.lat},{origin.lng})["leisure"];
 
-        boost = self.boost_factors.get(category, 0)
+          node(around:{radius_m},{origin.lat},{origin.lng})["natural"];
+          way(around:{radius_m},{origin.lat},{origin.lng})["natural"];
+          relation(around:{radius_m},{origin.lat},{origin.lng})["natural"];
 
-        if tags_count < 3:
-            boost += 0.2
-        elif tags_count < 5:
-            boost += 0.1
+          node(around:{radius_m},{origin.lat},{origin.lng})["amenity"="marketplace"];
+          way(around:{radius_m},{origin.lat},{origin.lng})["amenity"="marketplace"];
+          relation(around:{radius_m},{origin.lat},{origin.lng})["amenity"="marketplace"];
 
-        if category == 'water':
-            boost += 0.1
+          node(around:{radius_m},{origin.lat},{origin.lng})["amenity"="place_of_worship"];
+          way(around:{radius_m},{origin.lat},{origin.lng})["amenity"="place_of_worship"];
+          relation(around:{radius_m},{origin.lat},{origin.lng})["amenity"="place_of_worship"];
+        );
+        out center tags;
+        """
 
-        return min(1.0, base_score + boost)
+        response = SESSION.post(OVERPASS_URL, data=overpass_query, timeout=45)
+        response.raise_for_status()
+        raw = response.json().get("elements", [])
 
-    def find_underrated_locations(self, user_address: str, radius: int = None,
-                                 min_score: float = None) -> List[Dict]:
-        """Find and rate underrated locations near user."""
-        radius = radius or self.search_settings.get("default_radius", 5000)
-        min_score = min_score or self.search_settings.get("default_min_score", 0.6)
+        results: List[Dict[str, Any]] = []
+        seen: set[str] = set()
 
-        print(f"\n🌟 Finding underrated locations near {user_address}...")
-        print(f"📏 Search radius: {radius}m")
-        print(f"⭐ Minimum score: {min_score}")
+        for element in raw:
+            coords = _coord_from_element(element)
+            if not coords:
+                continue
 
-        user_coords = self.get_user_location(user_address)
-        if not user_coords:
-            return []
+            tags = element.get("tags") or {}
+            category = _infer_category(tags)
+            if not _category_matches(categories, category):
+                continue
 
-        locations = self.search_nearby_locations(user_coords, radius)
-        if not locations:
-            print("❌ No locations found in the search area")
-            return []
+            name = (
+                tags.get("name")
+                or tags.get("official_name")
+                or tags.get("alt_name")
+                or tags.get("operator")
+                or tags.get("brand")
+                or tags.get("amenity")
+                or tags.get("tourism")
+                or "Unnamed place"
+            )
 
-        underrated_locations = []
-        max_results = self.search_settings.get("max_results", 10)
+            osm_type = str(element.get("type") or "")
+            osm_id = str(element.get("id") or "")
+            uid = f"{osm_type}:{osm_id}"
+            if uid in seen:
+                continue
+            seen.add(uid)
 
-        for i, location in enumerate(locations):
-            if len(underrated_locations) >= max_results:
-                break
+            distance_km = geodesic((origin.lat, origin.lng), coords).kilometers
+            score = 100.0 / (1.0 + distance_km)
+            if category in {"Viewpoint", "Nature", "Park"}:
+                score += 10
+            if category in {"Historic", "Museum"}:
+                score += 5
 
-            print(f"\n📍 Analyzing location {i+1}/{len(locations)}...")
+            results.append(
+                {
+                    "id": uid,
+                    "name": name,
+                    "category": category,
+                    "icon": CATEGORY_ICONS.get(category, "◌"),
+                    "distance_km": round(distance_km, 2),
+                    "score": round(score, 2),
+                    "lat": round(coords[0], 6),
+                    "lng": round(coords[1], 6),
+                    "desc": _build_description(tags, category),
+                    "tags": _json_safe(tags),
+                    "source": "OpenStreetMap / Overpass",
+                    "osm_type": osm_type,
+                    "osm_id": osm_id,
+                }
+            )
 
-            glm_analysis = self.analyze_location_with_openrouter(location)
-            score = self.calculate_underrated_score(location, glm_analysis)
+        results.sort(key=lambda item: (CATEGORY_PRIORITY.get(item["category"], 99), item["distance_km"], -item["score"]))
+        return {
+            "origin": {"label": origin.label, "lat": round(origin.lat, 6), "lng": round(origin.lng, 6)},
+            "results": results[: max(1, limit)],
+            "count": len(results),
+            "radius_km": radius_km,
+            "source": "OpenStreetMap / Nominatim / Overpass",
+        }
 
-            if score >= min_score:
-                location_coords = (
-                    location.get('lat', location.get('center', {}).get('lat')),
-                    location.get('lon', location.get('center', {}).get('lon'))
-                )
 
-                if location_coords[0] and location_coords[1]:
-                    distance = geodesic(user_coords, location_coords).meters
-                    tags = location.get('tags', {})
+engine = EarthExplorerEngine()
 
-                    location_info = {
-                        "name": tags.get('name', 'Unnamed location'),
-                        "category": glm_analysis.get('category', 'unknown'),
-                        "score": round(score, 2),
-                        "distance": round(distance, 2),
-                        "reason": glm_analysis.get('reason', 'No specific reason'),
-                        "potential_score": glm_analysis.get('potential_score', ''),
-                        "tags_count": glm_analysis.get('tags_count', 0),
-                        "coordinates": location_coords,
-                        "osm_id": location.get('id'),
-                        "osm_type": location.get('type')
-                    }
 
-                    underrated_locations.append(location_info)
-                    print(f"✓ Added: {location_info['name']} (Score: {score:.2f})")
+class EarthExplorerHandler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(WEB_DIR), **kwargs)
 
-            time.sleep(1)
+    def end_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        super().end_headers()
 
-        underrated_locations.sort(key=lambda x: x['score'], reverse=True)
-        print(f"\n✓ Found {len(underrated_locations)} underrated locations")
+    def do_OPTIONS(self):
+        self.send_response(HTTPStatus.NO_CONTENT)
+        self.end_headers()
 
-        return underrated_locations
-
-    def display_results(self, locations: List[Dict]):
-        """Display results with enhanced formatting."""
-        if not locations:
-            print("\n❌ No underrated locations found matching your criteria.")
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/"):
+            self._handle_api_get(parsed)
             return
 
-        max_results = self.search_settings.get("max_results", 10)
-        display_locations = locations[:max_results]
+        self.path = "/index.html" if parsed.path == "/" else parsed.path
+        return super().do_GET()
 
-        print("\n" + "="*70)
-        print("🌟 TOP UNDERRATED LOCATIONS NEAR YOU 🌟")
-        print("="*70)
-
-        for i, location in enumerate(display_locations, 1):
-            stars = "⭐" * int(location['score'] * 5)
-            distance = f"{location['distance']:.0f}m" if location['distance'] < 1000 else f"{location['distance']/1000:.1f}km"
-
-            print(f"\n{i}. {location['name']}")
-            print(f"   🏞️  Category: {location['category'].title()}")
-            print(f"   {stars} Score: {location['score']:.2f}/1.0")
-            print(f"   📍 Distance: {distance} away")
-            print(f"   🏷️  OSM Tags: {location['tags_count']}")
-            print(f"   💡 Why underrated: {location['reason']}")
-
-            if location['potential_score']:
-                print(f"   🌟 Potential: {location['potential_score']}")
-
-            print("-" * 50)
-
-    def save_to_file(self, locations: List[Dict], filename: str = None):
-        """Save results to JSON with timestamp."""
-        if not filename:
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            filename = f"underrated_locations_{timestamp}.json"
-
-        output_data = {
-            "search_metadata": {
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "total_locations": len(locations),
-                "api_used": "OpenRouter"
-            },
-            "locations": locations
-        }
+    def _handle_api_get(self, parsed):
+        params = parse_qs(parsed.query or "")
+        path = parsed.path
 
         try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(output_data, f, indent=2, ensure_ascii=False)
-            print(f"\n💾 Results saved to: {filename}")
-        except Exception as e:
-            print(f"❌ Error saving file: {e}")
+            if path == "/api/health":
+                self._send_json({"ok": True, "service": "earth-explorer"})
+                return
+
+            if path == "/api/geocode":
+                query = (params.get("q") or params.get("query") or [""])[0].strip()
+                if not query:
+                    self._send_json({"error": "Missing q parameter"}, status=400)
+                    return
+                origin = engine.geocode_query(query)
+                if not origin:
+                    self._send_json({"error": "Location not found"}, status=404)
+                    return
+                reverse = engine.reverse_geocode(origin.lat, origin.lng)
+                self._send_json(
+                    {
+                        "query": query,
+                        "label": reverse.get("label") or origin.label,
+                        "display_name": reverse.get("display_name") or origin.label,
+                        "lat": origin.lat,
+                        "lng": origin.lng,
+                        "address": reverse.get("address") or {},
+                    }
+                )
+                return
+
+            if path == "/api/reverse":
+                lat = _parse_float((params.get("lat") or [None])[0])
+                lng = _parse_float((params.get("lng") or [None])[0])
+                if lat is None or lng is None:
+                    self._send_json({"error": "Missing lat/lng"}, status=400)
+                    return
+                self._send_json(engine.reverse_geocode(lat, lng))
+                return
+
+            if path == "/api/search":
+                query = (params.get("query") or params.get("q") or [""])[0].strip()
+                lat = _parse_float((params.get("lat") or [None])[0])
+                lng = _parse_float((params.get("lng") or [None])[0])
+                radius_km = float((params.get("radius") or ["15"])[0] or 15)
+                categories = [
+                    part.strip()
+                    for part in ((params.get("categories") or [""])[0]).split(",")
+                    if part.strip()
+                ]
+                limit = _parse_int((params.get("limit") or ["24"])[0], 24)
+
+                origin: Optional[SearchOrigin] = None
+                resolved_from = "unknown"
+
+                if query:
+                    coords = _parse_coordinate_pair(query)
+                    if coords:
+                        lat, lng = coords
+                        reverse = engine.reverse_geocode(lat, lng)
+                        origin = SearchOrigin(reverse.get("label") or query, lat, lng)
+                        resolved_from = "coordinates"
+                    elif lat is None or lng is None:
+                        origin = engine.geocode_query(query)
+                        resolved_from = "geocode"
+                    else:
+                        reverse = engine.reverse_geocode(lat, lng)
+                        origin = SearchOrigin(reverse.get("label") or query, lat, lng)
+                        resolved_from = "geocode+coords"
+                elif lat is not None and lng is not None:
+                    reverse = engine.reverse_geocode(lat, lng)
+                    origin = SearchOrigin(reverse.get("label") or "Selected location", lat, lng)
+                    resolved_from = "coordinates"
+
+                if origin is None:
+                    self._send_json({"error": "Provide a city/place or coordinates"}, status=400)
+                    return
+
+                payload = engine.search_locations(origin, radius_km=radius_km, categories=categories, limit=limit)
+                payload["query"] = query
+                payload["resolved_from"] = resolved_from
+                payload["categories"] = categories
+                self._send_json(payload)
+                return
+
+            self._send_json({"error": "Unknown API endpoint"}, status=404)
+        except requests.HTTPError as exc:
+            self._send_json({"error": "Upstream service error", "detail": str(exc)}, status=502)
+        except requests.RequestException as exc:
+            self._send_json({"error": "Network error contacting maps services", "detail": str(exc)}, status=502)
+        except Exception as exc:
+            self._send_json({"error": "Server error", "detail": str(exc)}, status=500)
+
+    def _send_json(self, data: Dict[str, Any], status: int = 200):
+        body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format, *args):
+        print(f"[HTTP] {self.address_string()} - {format % args}")
 
 
 def main():
-    """Main function."""
-    print("🌍 Welcome to the Underrated Locations Guide App!")
-    print("=" * 50)
-
-    # Load API key from environment or config
-    config = {}
+    WEB_DIR.mkdir(parents=True, exist_ok=True)
+    os.chdir(WEB_DIR)
+    server = ThreadingHTTPServer((HOST, PORT), EarthExplorerHandler)
+    print(f"🌍 Earth Explorer running at http://{HOST}:{PORT}/")
+    print(f"   Serving frontend from: {WEB_DIR}")
     try:
-        with open("config/config.json", 'r', encoding='utf-8') as f:
-            config = json.load(f)
-    except Exception:
-        config = {}
-
-    api_key = os.getenv("OPENROUTER_API_KEY") or config.get("api", {}).get("api_key") or config.get("api_key")
-
-    if not api_key:
-        print("\n⚠️ OpenRouter API key not found in environment variables or config.json")
-        api_key = input("Enter your OpenRouter API key: ").strip()
-
-    if not api_key:
-        print("❌ API key is required to continue")
-        return
-
-    try:
-        app = UnderratedGuideApp(api_key, "config/config.json")
-    except ValueError as e:
-        print(f"❌ {e}")
-        return
-
-    user_location = input("\n📍 Enter your location (address or city): ").strip()
-    if not user_location:
-        print("❌ Location cannot be empty")
-        return
-
-    try:
-        radius_input = input("🔍 Search radius in meters (default 5000): ").strip()
-        radius = int(radius_input) if radius_input else None
-    except ValueError:
-        print("⚠️ Invalid radius, using default")
-        radius = None
-
-    try:
-        min_score_input = input("⭐ Minimum score (0-1, default 0.6): ").strip()
-        min_score = float(min_score_input) if min_score_input else None
-        if min_score is not None and (min_score < 0 or min_score > 1):
-            print("⚠️ Score must be between 0 and 1, using default")
-            min_score = None
-    except ValueError:
-        print("⚠️ Invalid score, using default")
-        min_score = None
-
-    print("\n" + "="*50)
-    underrated = app.find_underrated_locations(
-        user_address=user_location,
-        radius=radius,
-        min_score=min_score
-    )
-
-    app.display_results(underrated)
-    if underrated:
-        app.save_to_file(underrated)
-
-    print("\n🎉 Thank you for using the Underrated Locations Guide!")
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping server...")
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":
