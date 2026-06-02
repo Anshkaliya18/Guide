@@ -1,5 +1,8 @@
 /* explore.js */
-'use strict';
+
+"use strict";
+// Debug: check if Globe library is loaded
+console.log('Globe availability check:', typeof Globe);
 
 const CATEGORIES = ['Tourism', 'Historic', 'Nature', 'Park', 'Museum', 'Market', 'Viewpoint', 'Religious'];
 
@@ -15,9 +18,10 @@ const CAT_ICONS = {
   Other: '◌',
 };
 
-const API_BASE = (location.origin && location.origin !== 'null')
+const API_BASE = (location.origin && location.origin !== 'null' && !location.origin.startsWith('file:'))
   ? location.origin
   : 'http://127.0.0.1:8000';
+console.info('API base for calls:', API_BASE);
 
 const selected = new Set(CATEGORIES);
 const stats = { found: 0, saved: 0, trips: 0, countries: 12 };
@@ -52,9 +56,8 @@ function apiUrl(path) {
 }
 
 function setLocationSummary(text) {
-  if ($locationSummary) {
-    $locationSummary.textContent = text;
-  }
+  // Disabled location summary display per user request.
+  // Intentionally left blank to prevent updating the UI element.
 }
 
 function setOrigin(origin, source = 'manual') {
@@ -86,20 +89,38 @@ function parseCoords(text) {
 }
 
 async function fetchJson(path) {
-  const response = await fetch(path, { headers: { Accept: 'application/json' } });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || `Request failed (${response.status})`);
+  try {
+    const response = await fetch(path, { headers: { Accept: 'application/json' } });
+    const text = await response.text().catch(() => '');
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
+    if (!response.ok) {
+      console.warn('fetchJson non-ok', { path, status: response.status, text, data });
+      throw new Error(data.error || `Request failed (${response.status})`);
+    }
+    return data;
+  } catch (e) {
+    console.error('fetchJson error for', path, e);
+    throw e;
   }
-  return data;
 }
 
 async function geocodeLocation(query) {
-  return fetchJson(apiUrl(`/api/geocode?q=${encodeURIComponent(query)}`));
+  try {
+    return await fetchJson(apiUrl(`/api/geocode?q=${encodeURIComponent(query)}`));
+  } catch (e) {
+    console.warn('geocodeLocation failed for', query, e);
+    throw e;
+  }
 }
 
 async function reverseGeocode(lat, lng) {
-  return fetchJson(apiUrl(`/api/reverse?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`));
+  try {
+    return await fetchJson(apiUrl(`/api/reverse?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`));
+  } catch (e) {
+    console.warn('reverseGeocode failed for', lat, lng, e);
+    throw e;
+  }
 }
 
 async function searchLocations({ query = '', lat = null, lng = null, radius = 15, categories = [] } = {}) {
@@ -155,7 +176,16 @@ function placeDistance(p) {
   return 0;
 }
 
+function escapeHTML(str) {
+  return String(str).replace(/[&<>"]/g, function (c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+  });
+}
+
 function renderResults(places) {
+  // Helper to safely escape any HTML from OSM data
+  const esc = (s) => escapeHTML(s);
+
   $results.innerHTML = '';
   if (!places.length) {
     $results.innerHTML = '';
@@ -173,7 +203,7 @@ function renderResults(places) {
       <div class="place-thumb">${CAT_ICONS[p.category] || '◌'}</div>
       <div class="place-info">
         <span class="badge" style="margin-bottom:0.35rem">${p.category || 'Other'}</span>
-        <h4>${p.name || 'Unnamed place'}</h4>
+        <h4>${esc(p.name) || 'Unnamed place'}</h4>
         <div class="place-meta">
           ${placeDistance(p).toFixed ? placeDistance(p).toFixed(2) : placeDistance(p)} km away
           ${p.score ? `<span class="place-dist">Score ${p.score}</span>` : ''}
@@ -620,6 +650,7 @@ async function detectMyLocation() {
   }
 
   showToast('Detecting your location…');
+      setLocationSummary('Detecting location…');
   navigator.geolocation.getCurrentPosition(async position => {
     const { latitude, longitude } = position.coords;
     if ($latInput) $latInput.value = latitude.toFixed(6);
@@ -678,6 +709,12 @@ async function resolveSearchOrigin() {
   const input = ($locationInput?.value || '').trim();
   const coords = parseCoords(input);
 
+  // If we already have a valid current origin, and the input text either matches its label
+  // or is one of the fallback strings set when geolocation lookup fails, reuse it directly.
+  if (currentOrigin && (input === currentOrigin.label || input === 'Current location' || input === 'Selected coordinates')) {
+    return currentOrigin;
+  }
+
   if (coords) {
     const data = await reverseGeocode(coords.lat, coords.lng).catch(() => null);
     return {
@@ -688,7 +725,7 @@ async function resolveSearchOrigin() {
     };
   }
 
-  if (input) {
+  if (input && input !== 'Current location' && input !== 'Selected coordinates') {
     const geocoded = await geocodeLocation(input);
     return {
       label: geocoded.label || geocoded.display_name || input,
@@ -769,6 +806,11 @@ async function discover() {
         return;
       }
       renderResults(currentResults);
+      // Clear the location summary once results are displayed to avoid a stale card lingering.
+      if (window.locationSummary) {
+        const $locationSummary = document.getElementById('locationSummary');
+        if ($locationSummary) $locationSummary.textContent = '';
+      }
       drawGlobeMarkers(data.origin || origin, currentResults);
       if (globe && data.origin) {
         globe.pointOfView({ lat: data.origin.lat, lng: data.origin.lng, altitude: 2.2 }, 1400);
@@ -828,12 +870,15 @@ if (toggleCoordsBtn) {
 const useCoordsBtn = document.getElementById('useCoords');
 if (useCoordsBtn) useCoordsBtn.onclick = useCoordinates;
 
+// explore.js
+// Replace your close handlers with this safer version:
+
 const modalFly = document.getElementById('modalFly');
 if (modalFly) {
   modalFly.onclick = () => {
     if (globe && currentPlace) {
       globe.pointOfView({ lat: Number(currentPlace.lat), lng: Number(currentPlace.lng), altitude: 1.2 }, 1600);
-      $modal.classList.remove('open');
+      closeModal();
       showToast('Flying to location…');
     }
   };
@@ -856,6 +901,10 @@ if (modalMaps) {
   };
 }
 
+const closeModalBtn = document.getElementById('closeModal');
+if (closeModalBtn) {
+  closeModalBtn.onclick = closeModal;
+}
 document.getElementById('closeModal').onclick = () => $modal.classList.remove('open');
 
 $mainGlobe?.addEventListener('pointerdown', () => pauseRotation(8000));
@@ -892,3 +941,10 @@ if (mobResults) {
 renderChips();
 updateStats();
 initGlobe();
+
+function closeModal() {
+  if ($modal) $modal.classList.remove('open');
+}
+
+// Force the modal closed on page load
+closeModal();

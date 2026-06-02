@@ -4,12 +4,31 @@ Test script for the Underrated Locations Guide App
 
 import sys
 import os
+from unittest.mock import patch, Mock
 
-# Add src directory to path
+# Ensure the project ``src`` package is importable when the tests are run
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from guide_app import UnderratedGuideApp
+from guide_app import (
+    UnderratedGuideApp,
+    EarthExplorerEngine,
+    SearchOrigin,
+    _parse_float,
+    _parse_int,
+    _parse_coordinate_pair,
+    _coord_from_element,
+    _display_label_from_reverse,
+    _build_description,
+    _infer_category,
+    _category_matches,
+    _json_safe,
+)
 import json
+import pytest
+import io
+import tempfile
+import contextlib
+from pathlib import Path
 
 def test_config_loading():
     """Test configuration loading.
@@ -20,7 +39,6 @@ def test_config_loading():
     # Instantiation should succeed; any exception will cause the test to fail.
     app = UnderratedGuideApp(config_file="config/config.json")
     assert isinstance(app, UnderratedGuideApp)
-    return True
 
 def test_location_detection():
     """Test location type detection.
@@ -40,7 +58,6 @@ def test_location_detection():
     for tags, expected in test_cases:
         location_type = app.detect_location_type(tags)
         assert location_type == expected, f"Expected {expected}, got {location_type}"
-    return True
 
 def test_fallback_analysis():
     """Test fallback analysis generation.
@@ -61,7 +78,268 @@ def test_fallback_analysis():
     assert isinstance(analysis["description"], str) and analysis["description"]
     # ``tags`` should be a JSON‑safe representation of the original tags
     assert analysis["tags"] == {"name": "Test River", "natural": "water"}
-    return True
+
+def test_parse_functions():
+    """Validate utility parsing helpers used throughout the backend."""
+    # _parse_float
+    assert _parse_float("123.45") == 123.45
+    assert _parse_float(None) is None
+    # _parse_int with default fallback
+    assert _parse_int("5", default=10) == 5
+    assert _parse_int(None, default=10) == 10
+    # _parse_coordinate_pair
+    assert _parse_coordinate_pair("12.34,56.78") == (12.34, 56.78)
+    assert _parse_coordinate_pair("invalid") is None
+
+def test_category_helpers():
+    """Test category inference and matching utilities."""
+    # _infer_category should map known tags to expected categories
+    assert _infer_category({"tourism": "viewpoint"}) == "Viewpoint"
+    assert _infer_category({"natural": "water"}) == "Nature"
+    assert _infer_category({"leisure": "park"}) == "Park"
+    assert _infer_category({"name": "Mystery"}) == "Other"
+    # _category_matches respects empty selection (matches any) and explicit matches
+    assert _category_matches([], "Anything") is True
+    assert _category_matches(["viewpoint"], "Viewpoint") is True
+    assert _category_matches(["park"], "Nature") is False
+
+def test_engine_geocode_query_coordinate():
+    """Geocode a coordinate string without making network calls.
+
+    The ``EarthExplorerEngine.geocode_query`` method calls ``reverse_geocode``
+    after parsing coordinates. To isolate the test from external services we
+    mock ``reverse_geocode`` to return ``None`` so that the label falls back to
+    the formatted coordinate string.
+    """
+    engine = EarthExplorerEngine()
+    # Patch the instance method to avoid a network request.
+    with patch.object(engine, "reverse_geocode", return_value=None):
+        origin = engine.geocode_query("12.34,56.78")
+    assert isinstance(origin, SearchOrigin)
+    assert origin.lat == 12.34
+    assert origin.lng == 56.78
+    # The label should be the formatted coordinate string when reverse lookup fails
+    assert origin.label == "12.34000, 56.78000"
+
+def test_engine_geocode_query_nominatim():
+    """Geocode a place name using the mocked Nominatim response."""
+    engine = EarthExplorerEngine()
+    mock_resp = Mock()
+    mock_resp.raise_for_status = Mock()
+    mock_resp.json.return_value = [{"lat": "12.34", "lon": "56.78", "display_name": "Test Place"}]
+    with patch("guide_app.SESSION.get", return_value=mock_resp):
+        origin = engine.geocode_query("Test Place")
+    assert isinstance(origin, SearchOrigin)
+    assert origin.lat == 12.34
+    assert origin.lng == 56.78
+    assert origin.label == "Test Place"
+
+def test_engine_reverse_geocode():
+    """Reverse‑geocode coordinates with a mocked response."""
+    engine = EarthExplorerEngine()
+    mock_resp = Mock()
+    mock_resp.raise_for_status = Mock()
+    mock_resp.json.return_value = {
+        "address": {"city": "Test City"},
+        "display_name": "Test Place",
+    }
+    with patch("guide_app.SESSION.get", return_value=mock_resp):
+        result = engine.reverse_geocode(12.34, 56.78)
+    assert result["label"] == "Test City"
+    assert result["display_name"] == "Test Place"
+    assert result["lat"] == 12.34
+    assert result["lng"] == 56.78
+
+def test_engine_search_locations():
+    """Search locations using a mocked Overpass response."""
+    engine = EarthExplorerEngine()
+    mock_resp = Mock()
+    mock_resp.raise_for_status = Mock()
+    mock_resp.json.return_value = {
+        "elements": [
+            {
+                "type": "node",
+                "id": 123,
+                "lat": 12.34,
+                "lon": 56.78,
+                "tags": {"tourism": "viewpoint", "name": "Test View"},
+            }
+        ]
+    }
+    with patch("guide_app.SESSION.post", return_value=mock_resp):
+        origin = SearchOrigin(label="Origin", lat=12.34, lng=56.78)
+        payload = engine.search_locations(origin, radius_km=1, categories=None, limit=10)
+    # Verify payload structure and content
+    assert isinstance(payload, dict)
+    assert payload["count"] == 1
+    result = payload["results"][0]
+    assert result["name"] == "Test View"
+    assert result["category"] == "Viewpoint"
+
+def test_json_safe_complex_structure():
+    """Ensure _json_safe correctly serialises nested structures."""
+    complex_obj = {
+        "string": "value",
+        "int": 1,
+        "float": 1.23,
+        "bool": True,
+        "none": None,
+        "list": [1, "two", {"nested": "yes"}],
+        "dict": {"a": 1, "b": [2, 3]},
+        "custom": object(),
+    }
+    safe = _json_safe(complex_obj)
+    # Primitive types should remain unchanged
+    assert safe["string"] == "value"
+    assert safe["int"] == 1
+    assert safe["float"] == 1.23
+    assert safe["bool"] is True
+    assert safe["none"] is None
+    # List and dict should be recursively safe
+    assert safe["list"][0] == 1
+    assert safe["list"][1] == "two"
+    assert safe["list"][2]["nested"] == "yes"
+    assert safe["dict"]["a"] == 1
+    assert safe["dict"]["b"] == [2, 3]
+    # Non‑serialisable objects should be converted to string
+    assert isinstance(safe["custom"], str)
+
+def test_coord_from_element_variants():
+    """Test extraction of coordinates from different OSM element shapes."""
+    node = {"lat": 12.34, "lon": 56.78}
+    way = {"center": {"lat": 21.0, "lon": 31.0}}
+    assert _coord_from_element(node) == (12.34, 56.78)
+    assert _coord_from_element(way) == (21.0, 31.0)
+    # Missing coordinates should return None
+    assert _coord_from_element({}) is None
+
+def test_display_label_from_reverse_variants():
+    """Validate label generation from reverse‑geocode data with missing fields."""
+    data_full = {
+        "address": {"city": "Test City", "state": "TS", "country": "TC"},
+        "display_name": "Full Place",
+    }
+    assert _display_label_from_reverse(data_full) == "Test City, TS, TC"
+
+    data_missing = {"address": {}, "display_name": "Only Name"}
+    assert _display_label_from_reverse(data_missing) == "Only Name"
+
+    data_none = {}
+    assert _display_label_from_reverse(data_none) == "Selected location"
+
+def test_build_description_for_all_categories():
+    """Ensure description builder returns a non‑empty string for each category."""
+    categories = [
+        "Viewpoint",
+        "Nature",
+        "Park",
+        "Museum",
+        "Historic",
+        "Market",
+        "Religious",
+        "Tourism",
+        "Other",
+    ]
+    for cat in categories:
+        desc = _build_description({"name": "Test"}, cat)
+        assert isinstance(desc, str) and len(desc) > 0
+
+def test_infer_category_all_mappings():
+    """Check that _infer_category maps known tag combos to expected categories."""
+    cases = [
+        ({"tourism": "viewpoint"}, "Viewpoint"),
+        ({"natural": "water"}, "Nature"),
+        ({"leisure": "park"}, "Park"),
+        ({"tourism": "museum"}, "Museum"),
+        ({"historic": "castle"}, "Historic"),
+        ({"amenity": "marketplace"}, "Market"),
+        ({"amenity": "place_of_worship"}, "Religious"),
+        ({"tourism": "attraction"}, "Tourism"),
+        ({"name": "Mystery"}, "Other"),
+    ]
+    for tags, expected in cases:
+        assert _infer_category(tags) == expected
+
+def test_category_matches_logic():
+    """Validate the matching logic for category filters."""
+    assert _category_matches([], "Anything") is True
+    assert _category_matches(["viewpoint", "park"], "Park") is True
+    assert _category_matches(["viewpoint"], "Park") is False
+    # "Other" handling
+    assert _category_matches(["other"], "Other") is True
+    assert _category_matches(["other"], "Park") is False
+
+def test_engine_geocode_query_invalid():
+    """Geocode an unknown place should return None when API yields no results."""
+    engine = EarthExplorerEngine()
+    mock_resp = Mock()
+    mock_resp.raise_for_status = Mock()
+    mock_resp.json.return_value = []
+    with patch("guide_app.SESSION.get", return_value=mock_resp):
+        result = engine.geocode_query("nonexistentplace123")
+    assert result is None
+
+def test_engine_search_locations_category_filter_and_duplicates():
+    """Search should respect category filters and deduplicate OSM objects."""
+    engine = EarthExplorerEngine()
+    mock_resp = Mock()
+    mock_resp.raise_for_status = Mock()
+    # Two elements with same uid but different tags to test deduplication
+    mock_resp.json.return_value = {
+        "elements": [
+            {
+                "type": "node",
+                "id": 1,
+                "lat": 12.34,
+                "lon": 56.78,
+                "tags": {"tourism": "viewpoint", "name": "View A"},
+            },
+            {
+                "type": "node",
+                "id": 1,
+                "lat": 12.34,
+                "lon": 56.78,
+                "tags": {"tourism": "viewpoint", "name": "View A Duplicate"},
+            },
+            {
+                "type": "node",
+                "id": 2,
+                "lat": 13.0,
+                "lon": 57.0,
+                "tags": {"leisure": "park", "name": "Park B"},
+            },
+        ]
+    }
+    with patch("guide_app.SESSION.post", return_value=mock_resp):
+        origin = SearchOrigin(label="Origin", lat=12.34, lng=56.78)
+        payload = engine.search_locations(origin, radius_km=1, categories=["Viewpoint"], limit=10)
+    # Should only include the viewpoint (duplicate removed) and respect filter
+    assert payload["count"] == 1
+    result = payload["results"][0]
+    assert result["category"] == "Viewpoint"
+    assert result["name"] == "View A"
+
+def test_engine_search_locations_scoring_and_limit():
+    """Verify that distance‑based scoring works and limit is applied."""
+    engine = EarthExplorerEngine()
+    mock_resp = Mock()
+    mock_resp.raise_for_status = Mock()
+    # Create three elements at varying distances
+    mock_resp.json.return_value = {
+        "elements": [
+            {"type": "node", "id": 10, "lat": 12.34, "lon": 56.78, "tags": {"tourism": "viewpoint", "name": "Near"}},
+            {"type": "node", "id": 11, "lat": 13.34, "lon": 57.78, "tags": {"tourism": "viewpoint", "name": "Mid"}},
+            {"type": "node", "id": 12, "lat": 15.34, "lon": 60.78, "tags": {"tourism": "viewpoint", "name": "Far"}},
+        ]
+    }
+    with patch("guide_app.SESSION.post", return_value=mock_resp):
+        origin = SearchOrigin(label="Origin", lat=12.34, lng=56.78)
+        payload = engine.search_locations(origin, radius_km=5, categories=None, limit=2)
+    # Limit should truncate to 2 results, ordered by distance then score
+    assert len(payload["results"]) == 2
+    names = [r["name"] for r in payload["results"]]
+    # The nearest two should be "Near" and "Mid"
+    assert "Near" in names and "Mid" in names
 
 def main():
     """Run all tests"""
@@ -71,15 +349,26 @@ def main():
     tests = [
         test_config_loading,
         test_location_detection,
-        test_fallback_analysis
+        test_fallback_analysis,
+        test_parse_functions,
+        test_category_helpers,
+        test_engine_geocode_query_coordinate,
+        test_engine_geocode_query_nominatim,
+        test_engine_reverse_geocode,
+        test_engine_search_locations,
     ]
 
     passed = 0
     total = len(tests)
 
     for test in tests:
-        if test():
+        try:
+            test()
             passed += 1
+        except AssertionError as exc:
+            print(f"❌ {test.__name__} failed: {exc}")
+        except Exception as exc:
+            print(f"❌ {test.__name__} raised an unexpected error: {exc}")
 
     print(f"\n📊 Test Results: {passed}/{total} tests passed")
 

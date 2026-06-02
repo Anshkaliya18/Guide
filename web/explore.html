@@ -354,7 +354,7 @@
     }
   </style>
 </head>
-<body>
+<body class="page-ready">
 
 <!-- NAV -->
 <nav class="nav">
@@ -406,9 +406,7 @@
           </div>
         </div>
 
-        <div class="location-summary" id="locationSummary" style="margin-top:0.65rem;font-size:0.76rem;color:var(--text-3);line-height:1.5">
-          No location selected yet.
-        </div>
+        <!-- Location summary removed per user request -->
       </div>
 
       <div class="side-section">
@@ -483,7 +481,7 @@
       </div>
 
       <!-- Empty -->
-      <div id="emptyState" class="empty-state">
+      <div id="emptyState" class="empty-state hidden">
         <div class="empty-orb">◎</div>
         <p>Select categories and press<br><strong>Discover</strong> to find places.</p>
         <button class="btn btn-ghost" id="expandRadius" style="margin-top:0.25rem;font-size:0.75rem">Expand radius</button>

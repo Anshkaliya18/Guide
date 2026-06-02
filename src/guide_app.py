@@ -27,6 +27,26 @@ from urllib.parse import parse_qs, urlparse
 import requests
 from geopy.distance import geodesic
 
+# Local chatbot import
+try:
+    # Attempt relative import when running as a module
+    from .chatbot import get_response  # type: ignore
+except Exception:
+    # Fallback: load chatbot module from the same directory when running as a script
+    import importlib.util
+    import sys
+    from pathlib import Path
+    chatbot_path = Path(__file__).resolve().parent / "chatbot.py"
+    spec = importlib.util.spec_from_file_location("chatbot", chatbot_path)
+    if spec and spec.loader:
+        chatbot = importlib.util.module_from_spec(spec)
+        sys.modules["chatbot"] = chatbot
+        spec.loader.exec_module(chatbot)
+        get_response = getattr(chatbot, "get_response")
+    else:
+        def get_response(message: str) -> str:
+            return f"You said: {message}"
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEB_DIR = BASE_DIR / "web"
 HOST = os.getenv("HOST", "127.0.0.1")
@@ -182,7 +202,7 @@ def _infer_category(tags: Dict[str, Any]) -> str:
         return "Nature"
     if leisure in {"park", "garden", "nature_reserve", "pitch", "playground"}:
         return "Park"
-    if tourism in {"museum", "gallery", "attraction", "artwork"}:
+    if tourism in {"museum", "gallery", "artwork"}:
         return "Museum"
     if historic:
         return "Historic"
@@ -386,6 +406,12 @@ class EarthExplorerHandler(SimpleHTTPRequestHandler):
         try:
             if path == "/api/health":
                 self._send_json({"ok": True, "service": "earth-explorer"})
+                return
+
+            if path.rstrip('/') == "/api/chat":
+                msg = (params.get("msg") or params.get("message") or [""])[0].strip()
+                response = get_response(msg)
+                self._send_json({"reply": response})
                 return
 
             if path == "/api/geocode":

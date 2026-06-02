@@ -47,6 +47,116 @@ a { color: inherit; text-decoration: none; }
 button { cursor: pointer; font-family: var(--font-body); }
 img { display: block; max-width: 100%; }
 
+/* ─── TEXT ANIMATION ─────────────────────────────────────────────── */
+/* Fade‑in animation applied to all visible elements when the page
+   acquires the .page-ready class (already present in the HTML).
+   This provides a subtle entrance effect for headings, buttons, links,
+   and chat messages, improving perceived UI responsiveness. */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Apply the animation only to the visible shell so hidden overlays
+   (especially the detail modal) do not flash on page load. */
+.page-ready .nav,
+.page-ready .explorer,
+.page-ready .mobile-menu,
+.page-ready .mobile-explore-nav,
+.page-ready .side,
+.page-ready .globe-center,
+.page-ready .results-panel,
+.page-ready .side-section,
+.page-ready .btn,
+.page-ready .chip,
+.page-ready .stat-item,
+.page-ready .place-card,
+.page-ready .loading-state,
+.page-ready .empty-state,
+.page-ready .globe-hint {
+  animation: fadeIn 0.45s ease-out forwards;
+  animation-delay: calc(0.02s * var(--animation-index, 0));
+}
+
+/* Increment a CSS custom property for each child to create a cascade. */
+.page-ready .nav,
+.page-ready .explorer,
+.page-ready .mobile-menu,
+.page-ready .mobile-explore-nav,
+.page-ready .side,
+.page-ready .globe-center,
+.page-ready .results-panel,
+.page-ready .side-section,
+.page-ready .btn,
+.page-ready .chip,
+.page-ready .stat-item,
+.page-ready .place-card,
+.page-ready .loading-state,
+.page-ready .empty-state,
+.page-ready .globe-hint {
+  --animation-index: 0;
+}
+.page-ready .nav *:nth-child(n),
+.page-ready .explorer *:nth-child(n),
+.page-ready .mobile-menu *:nth-child(n),
+.page-ready .mobile-explore-nav *:nth-child(n),
+.page-ready .side *:nth-child(n),
+.page-ready .globe-center *:nth-child(n),
+.page-ready .results-panel *:nth-child(n),
+.page-ready .side-section *:nth-child(n),
+.page-ready .btn *:nth-child(n),
+.page-ready .chip *:nth-child(n),
+.page-ready .stat-item *:nth-child(n),
+.page-ready .place-card *:nth-child(n),
+.page-ready .loading-state *:nth-child(n),
+.page-ready .empty-state *:nth-child(n),
+.page-ready .globe-hint *:nth-child(n) {
+  --animation-index: calc(var(--animation-index) + 1);
+}
+
+/* Overlays and toasts should not inherit entrance animation. */
+.page-ready .modal-overlay,
+.page-ready .modal-overlay *,
+.page-ready .toast,
+.page-ready .toast * {
+  animation: none !important;
+}
+
+/* ─── SECTION‑SPECIFIC TEXT ANIMATION ─────────────────────────────── */
+/* Headings and paragraphs in the Saved and About hero sections slide
+   upward while fading in, creating a more pronounced entrance effect. */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Saved page */
+.saved-hero h1,
+.saved-hero p {
+  animation: fadeInUp 0.6s ease-out forwards;
+  animation-delay: 0.2s;
+}
+
+/* About page */
+.about-hero h1,
+.about-hero p {
+  animation: fadeInUp 0.6s ease-out forwards;
+  animation-delay: 0.2s;
+}
+
+/* ─── FONT CONSISTENCY ─────────────────────────────────────── */
+/* Ensure headings and paragraph text in the Saved and About pages use the
+   same font families as the Index page. */
+.saved-hero h1,
+.about-hero h1 {
+  font-family: var(--font-display) !important;
+}
+
+.saved-hero p,
+.about-hero p {
+  font-family: var(--font-body) !important;
+}
+
 /* ─── SCROLLBAR ──────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -380,18 +490,21 @@ input[type=range]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px var(--gold
   background: rgba(5,6,8,0.82);
   backdrop-filter: blur(10px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 200;
-  padding: 1rem;
+  padding: 2rem 1rem 1rem;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease, visibility 0s linear 0.25s;
 }
 
 .modal-overlay.open {
   opacity: 1;
+  visibility: visible;
   pointer-events: all;
+  transition: opacity 0.25s ease;
 }
 
 .modal-box {
@@ -1057,7 +1170,7 @@ video{
   line-height: 1.58;
   margin: 0 0 0.5rem;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
