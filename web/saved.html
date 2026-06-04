@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Saved — Earth Explorer</title>
+  <title>Saved — GUIDE</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -21,9 +21,12 @@
       min-height: 86vh;
       padding: 104px 7vw 3rem;
       display: grid;
-      grid-template-columns: minmax(340px, 0.9fr) minmax(420px, 1.1fr);
-      gap: 1.8rem;
-      align-items: center;
+      grid-template-columns: minmax(340px, 0.95fr) minmax(420px, 1.05fr);
+      grid-template-areas:
+        "copy media"
+        "copy panel";
+      gap: 1.2rem 1.8rem;
+      align-items: start;
       overflow: hidden;
     }
 
@@ -39,18 +42,26 @@
     }
 
     .saved-bg {
-      position: absolute;
-      inset: 0;
+      grid-area: media;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
       z-index: 0;
       overflow: hidden;
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border-2);
+      background: rgba(255,255,255,0.03);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.18);
     }
 
     .saved-video {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      object-position: center;
       filter: saturate(0.95) contrast(1.05) brightness(0.72);
       transform: scale(1.03);
+      display: block;
     }
 
     .saved-bg::after {
@@ -58,8 +69,8 @@
       position: absolute;
       inset: 0;
       background:
-        linear-gradient(90deg, rgba(10,11,13,0.94) 0%, rgba(10,11,13,0.82) 40%, rgba(10,11,13,0.35) 68%, rgba(10,11,13,0.88) 100%),
-        linear-gradient(180deg, rgba(10,11,13,0.12) 0%, rgba(10,11,13,0.42) 100%);
+        linear-gradient(180deg, rgba(10,11,13,0.10) 0%, rgba(10,11,13,0.36) 100%),
+        linear-gradient(90deg, rgba(10,11,13,0.42) 0%, rgba(10,11,13,0.12) 40%, rgba(10,11,13,0.36) 100%);
       pointer-events: none;
     }
 
@@ -67,6 +78,18 @@
     .hero-panel {
       position: relative;
       z-index: 2;
+    }
+
+    .hero-copy {
+      grid-area: copy;
+      text-align: left;
+      justify-self: start;
+      align-self: center;
+      max-width: 58ch;
+    }
+
+    .hero-copy .hero-actions {
+      justify-content: flex-start;
     }
 
     .hero-tag {
@@ -97,6 +120,7 @@
       letter-spacing: -0.015em;
       color: var(--text);
       margin-bottom: 1rem;
+      text-align: left;
     }
 
     .saved-hero p {
@@ -105,6 +129,7 @@
       max-width: 58ch;
       line-height: 1.75;
       margin-bottom: 1.5rem;
+      text-align: left;
     }
 
     .hero-actions {
@@ -131,8 +156,9 @@
     }
 
     .hero-panel {
-      align-self: end;
-      justify-self: end;
+      grid-area: panel;
+      align-self: start;
+      justify-self: start;
       width: min(520px, 100%);
       padding: 1.1rem;
       border-radius: var(--radius-xl);
@@ -301,6 +327,13 @@
       .saved-hero,
       .saved-shell {
         grid-template-columns: 1fr;
+        grid-template-areas: none;
+      }
+
+      .hero-copy,
+      .saved-bg,
+      .hero-panel {
+        grid-area: auto;
       }
 
       .side {
@@ -321,6 +354,10 @@
         padding-top: 92px;
       }
 
+      .hero-copy {
+        max-width: none;
+      }
+
       .hero-panel-grid {
         grid-template-columns: 1fr 1fr;
       }
@@ -337,14 +374,14 @@
   <div class="space-bg"></div>
 
   <nav class="nav">
-    <a href="index.html" class="nav-logo"><span class="dot"></span>Earth Explorer</a>
+    <a href="index.html" class="nav-logo"><span class="dot"></span>GUIDE</a>
     <ul class="nav-links">
       <li><a href="index.html"><span class="nav-icon">◎</span> Home</a></li>
       <li><a href="explore.html"><span class="nav-icon">✦</span> Explore</a></li>
       <li><a href="saved.html" class="active"><span class="nav-icon">▣</span> Saved</a></li>
       <li><a href="about.html"><span class="nav-icon">✧</span> About</a></li>
     </ul>
-    <a href="explore.html" class="nav-cta">Open Explorer</a>
+    <a href="explore.html" class="nav-cta">Explore Now</a>
     <button class="nav-hamburger" id="navHam" aria-label="Menu" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
@@ -357,40 +394,41 @@
     <a href="about.html">✧ &nbsp;About</a>
   </div>
 
-  <header class="saved-hero">
-    <div class="saved-bg"></div>
+  <header class="saved-hero">\n    <div class="saved-particles" aria-hidden="true"></div>
+    <div class="saved-bg"><video class="saved-video" autoplay muted loop playsinline><source src="mixkit-large-paper-lamp-in-the-street-4109-full-hd.mp4" type="video/mp4" /></video></div>
 
-    <div class="hero-copy">
-      <div class="hero-tag">Saved collection</div>
-      <h1>Your bookmarked hidden gems</h1>
-      <p>
-        Review the places you saved while exploring. Keep your favourite locations handy,
-        remove entries you no longer need, and jump back into the globe explorer anytime.
+    <div class="hero-copy anim-up">
+      <div class="hero-tag anim-up">Saved collection</div>
+      <h1 class="anim-up-2">Your Personal Collection of Hidden Gems</h1>
+      <p class="hero-paragraph-anim">
+        Every hidden gem you've discovered, saved in one place.
+        Build your personal travel collection, revisit unforgettable destinations,
+        and uncover your next adventure whenever inspiration strikes.
       </p>
       <div class="hero-actions">
         <a href="explore.html" class="btn btn-gold">Keep exploring</a>
         <a href="index.html" class="btn btn-outline">Back to home</a>
       </div>
-      <div class="hero-note">Clean cinematic background for saved places.</div>
+      <div class="hero-note">Your next journey starts with a saved discovery.</div>
     </div>
 
-    <div class="hero-panel glass">
+    <div class="hero-panel glass reveal">
       <div class="hero-panel-grid">
         <div class="hero-mini">
           <strong id="savedCount">0</strong>
-          <span>Saved places</span>
+          <span>Hidden Gems Saved</span>
         </div>
         <div class="hero-mini">
           <strong>Local</strong>
-          <span>Browser storage</span>
+          <span>Personal Collection</span>
         </div>
         <div class="hero-mini">
           <strong>Fast</strong>
-          <span>Fly back anytime</span>
+          <span>Explore Again</span>
         </div>
         <div class="hero-mini">
           <strong>Easy</strong>
-          <span>Remove or revisit</span>
+          <span>Save • Revisit • Share</span>
         </div>
       </div>
     </div>
@@ -398,34 +436,33 @@
 
   <main class="saved-shell">
     <aside class="side">
-      <div class="side-card glass">
+      <div class="side-card glass reveal">
         <h2>How saved places work</h2>
         <p>
-          Saved locations are kept in your browser so you can revisit them quickly without signing in.
-          Use the Explore page to add more places, then return here to review your collection.
+          Every place you save becomes part of your personal discovery collection. Revisit unique destinations, plan future trips, and keep track of the hidden gems that caught your attention.
         </p>
       </div>
 
-      <div class="side-card glass">
+      <div class="side-card glass reveal">
         <h2>Quick actions</h2>
         <div class="side-list">
-          <a class="btn btn-gold" href="explore.html" style="justify-content:center;">Add more places</a>
-          <a class="btn btn-outline" href="about.html" style="justify-content:center;">Learn about the app</a>
+          <a class="btn btn-gold" href="explore.html" style="justify-content:center;">Discover More Hidden Gems</a>
+          <a class="btn btn-outline" href="about.html" style="justify-content:center;">How GUIDE Works</a>
         </div>
       </div>
 
-      <div class="side-note">
-        Tip: saved entries can be removed from the card itself. The list updates instantly.
+      <div class="side-note reveal">
+        Your collection updates automatically. Save new discoveries, revisit favorites, or remove places with a single click.
       </div>
     </aside>
 
-    <section class="results-panel glass">
-      <div class="results-header">
+    <section class="results-panel glass reveal">
+      <div class="results-header reveal">
         <div class="results-header-top">
           <div>
-            <div class="results-title">Saved Places</div>
+            <div class="results-title">My Discovery Collection</div>
             <div class="results-subtitle">
-              Every hidden gem you've bookmarked — revisit, fly to, or open in Maps.
+              A curated collection of underrated destinations you've chosen to remember. Explore them again, navigate instantly, or plan your next adventure.
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem">
@@ -437,24 +474,27 @@
       <div class="results-body" id="savedResults" aria-live="polite">
         <div class="ee-empty">
           <div class="ee-empty-orb">◎</div>
-          <p><strong>Loading saved places…</strong><br>Your bookmarked gems will appear here.</p>
+          <p><strong>Loading saved places…</strong><br>Hidden gems you save will appear here, ready for your next adventure.</p>
         </div>
       </div>
     </section>
   </main>
 
   <footer class="footer">
-    <div class="footer-logo"><span style="color:var(--gold)">◎</span>&nbsp;Earth Explorer</div>
+    <div class="footer-logo"><span style="color:var(--gold)">◎</span>&nbsp;GUIDE</div>
     <ul class="footer-links">
       <li><a href="index.html">Home</a></li>
       <li><a href="explore.html">Explore</a></li>
       <li><a href="saved.html">Saved</a></li>
       <li><a href="about.html">About</a></li>
     </ul>
-    <span class="footer-copy">© 2025 Earth Explorer</span>
+    <span class="footer-copy">© 2025 GUIDE</span>
   </footer>
 
   <script src="nav.js" defer></script>
+  <script>
+    // motion-ready body state is added by saved-market-ready.js
+  </script>
   <script src="saved.js" defer></script>
 
 </body>

@@ -26,6 +26,8 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 from geopy.distance import geodesic
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Local chatbot import
 try:
@@ -86,6 +88,17 @@ CATEGORY_PRIORITY = {
 }
 
 SESSION = requests.Session()
+retry_adapter = HTTPAdapter(
+    max_retries=Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "POST"],
+        raise_on_status=False,
+    )
+)
+SESSION.mount("https://", retry_adapter)
+SESSION.mount("http://", retry_adapter)
 SESSION.headers.update({"User-Agent": USER_AGENT, "Accept": "application/json"})
 
 
@@ -377,6 +390,13 @@ engine = EarthExplorerEngine()
 
 
 class EarthExplorerHandler(SimpleHTTPRequestHandler):
+    # Override copyfile to gracefully handle client disconnects during large file transfers (e.g., video streaming)
+    def copyfile(self, source, outputfile):
+        try:
+            super().copyfile(source, outputfile)
+        except (ConnectionResetError, ConnectionAbortedError):
+            # Silently ignore client disconnects; the server continues serving other requests.
+            pass
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WEB_DIR), **kwargs)
 
@@ -512,9 +532,9 @@ class EarthExplorerHandler(SimpleHTTPRequestHandler):
 
 def main():
     WEB_DIR.mkdir(parents=True, exist_ok=True)
-    os.chdir(WEB_DIR)
+    # os.chdir(WEB_DIR)  # Removed to avoid double path change
     server = ThreadingHTTPServer((HOST, PORT), EarthExplorerHandler)
-    print(f"🌍 Earth Explorer running at http://{HOST}:{PORT}/")
+    print(f"Earth Explorer running at http://{HOST}:{PORT}/")
     print(f"   Serving frontend from: {WEB_DIR}")
     try:
         server.serve_forever()

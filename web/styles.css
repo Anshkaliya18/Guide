@@ -748,6 +748,27 @@ input[type=range]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px var(--gold
 }
 
 /* ─── ANIMATIONS ─────────────────────────────────────────────── */
+/* Ensure basic anim-up classes always animate */
+.anim-up,
+.anim-up-2,
+.anim-up-3,
+.anim-up-4 {
+  animation-fill-mode: forwards;
+}
+
+
+/* Custom animation for the hero paragraph on the Saved page */
+@keyframes heroParagraphFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero-paragraph-anim {
+  animation: heroParagraphFadeUp 0.7s ease-out forwards;
+  animation-delay: 0.3s; /* stagger after tag and heading */
+  animation-fill-mode: forwards;
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @keyframes fadeUp {
@@ -760,9 +781,12 @@ input[type=range]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 5px var(--gold
   to   { opacity: 1; }
 }
 
-.anim-up { animation: fadeUp 0.6s ease both; }
+.anim-up { animation: fadeUp 0.45s ease both; }
 .anim-up-2 { animation: fadeUp 0.6s ease 0.1s both; }
-.anim-up-3 { animation: fadeUp 0.6s ease 0.2s both; }
+.anim-up-3 { animation: fadeUp 0.45s ease 0.2s both; }
+
+/* Specific adjustment for paragraph with anim-up-3 – use fadeIn (no translate) for smoother appearance */
+p.anim-up-3 { animation: fadeIn 0.45s ease 0.2s both; }
 .anim-up-4 { animation: fadeUp 0.6s ease 0.3s both; }
 
 /* ─── HIDDEN ─────────────────────────────────────────────────── */
@@ -1236,4 +1260,389 @@ video{
   background: rgba(224,112,112,0.1);
   border-color: rgba(224,112,112,0.35);
   color: #e07070;
+}
+
+
+/* =========================================================
+   GUIDE SAVED PAGE — CINEMATIC MOTION LAYER
+========================================================= */
+
+body {
+  transition: opacity 0.38s ease, transform 0.38s cubic-bezier(.22,1,.36,1);
+  will-change: opacity, transform;
+}
+
+body.page-ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+body.page-exit {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.995);
+}
+
+.saved-hero {
+  isolation: isolate;
+  perspective: 1200px;
+}
+
+.saved-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.saved-particle {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 999px;
+  background: rgba(201,169,110,0.55);
+  box-shadow: 0 0 18px rgba(201,169,110,0.08);
+  opacity: 0;
+  filter: blur(0.2px);
+  animation: particleFloat var(--dur) ease-in-out infinite;
+  animation-delay: var(--delay);
+  transform: translate3d(0,0,0);
+}
+
+@keyframes particleFloat {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(0.7); }
+  20%  { opacity: 0.45; }
+  50%  { transform: translate3d(calc(var(--drift) * 0.5), calc(var(--rise) * -0.5), 0) scale(1); }
+  80%  { opacity: 0.28; }
+  100% { opacity: 0; transform: translate3d(var(--drift), calc(var(--rise) * -1), 0) scale(0.75); }
+}
+
+.saved-bg {
+  transform: translateZ(0);
+}
+
+.saved-video {
+  animation: savedVideoZoom 26s ease-in-out infinite alternate;
+  will-change: transform;
+  /* Force a 16:9 aspect ratio for the background video */
+  aspect-ratio: 16 / 9;
+}
+
+@keyframes savedVideoZoom {
+  from { transform: scale(1.02) translate3d(0, 0, 0); }
+  to   { transform: scale(1.09) translate3d(0, -14px, 0); }
+}
+
+.saved-bg::after {
+  background:
+    linear-gradient(90deg, rgba(10,11,13,0.96) 0%, rgba(10,11,13,0.84) 40%, rgba(10,11,13,0.36) 68%, rgba(10,11,13,0.9) 100%),
+    linear-gradient(180deg, rgba(10,11,13,0.10) 0%, rgba(10,11,13,0.40) 100%);
+}
+
+.hero-copy,
+.hero-panel,
+.results-header,
+.results-panel,
+.side-card,
+.side-note,
+.saved-card,
+.btn,
+.nav-links a,
+.nav-cta {
+  will-change: transform, opacity, box-shadow, border-color;
+}
+
+.hero-copy,
+.hero-panel {
+  opacity: 0;
+  transform: translateY(28px);
+  text-align: left; /* Ensure header text aligns left */
+}
+
+body.page-ready .hero-copy {
+  animation: heroBlockIn 0.9s cubic-bezier(.22,1,.36,1) 0.15s forwards;
+}
+
+body.page-ready .hero-panel {
+  animation: heroPanelIn 0.95s cubic-bezier(.22,1,.36,1) 0.28s forwards;
+}
+
+@keyframes heroBlockIn {
+  from { opacity: 0; transform: translateY(28px); filter: blur(10px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes heroPanelIn {
+  from { opacity: 0; transform: translateY(32px) scale(0.98); filter: blur(8px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+.hero-copy .hero-tag,
+.hero-copy h1,
+.hero-copy p,
+.hero-copy .hero-actions,
+.hero-copy .hero-note {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+body.page-ready .hero-copy .hero-tag {
+  animation: textRise 0.65s cubic-bezier(.22,1,.36,1) 0.28s forwards;
+}
+body.page-ready .hero-copy h1 {
+  animation: titleWordReveal 0.95s cubic-bezier(.22,1,.36,1) 0.42s forwards;
+}
+body.page-ready .hero-copy p {
+  animation: textRise 0.8s cubic-bezier(.22,1,.36,1) 0.62s forwards;
+}
+body.page-ready .hero-copy .hero-actions {
+  animation: textRise 0.72s cubic-bezier(.22,1,.36,1) 0.78s forwards;
+}
+body.page-ready .hero-copy .hero-note {
+  animation: textRise 0.7s cubic-bezier(.22,1,.36,1) 0.9s forwards;
+}
+
+@keyframes textRise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero-copy h1 .word {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(10px);
+  transform: translateY(14px);
+  animation: wordReveal 0.82s cubic-bezier(.22,1,.36,1) forwards;
+}
+
+@keyframes wordReveal {
+  from { opacity: 0; filter: blur(10px); transform: translateY(14px); }
+  to   { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+
+.hero-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-panel::before,
+.side-card::before,
+.results-panel::before,
+.saved-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.08), transparent 38%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.hero-panel:hover::before,
+.side-card:hover::before,
+.results-panel:hover::before,
+.saved-card:hover::before {
+  opacity: 1;
+}
+
+.hero-panel:hover,
+.side-card:hover,
+.results-panel:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.22);
+}
+
+.hero-mini {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(.22,1,.36,1), border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hero-mini:hover {
+  transform: translateY(-6px);
+  border-color: rgba(201,169,110,0.25);
+  box-shadow: 0 18px 34px rgba(0,0,0,0.14);
+}
+
+.results-panel {
+  position: relative;
+}
+
+.results-header,
+.side-card,
+.side-note {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+body.page-ready .results-header {
+  animation: textRise 0.8s cubic-bezier(.22,1,.36,1) 0.32s forwards;
+}
+body.page-ready .side-card:nth-of-type(1) {
+  animation: textRise 0.72s cubic-bezier(.22,1,.36,1) 0.36s forwards;
+}
+body.page-ready .side-card:nth-of-type(2) {
+  animation: textRise 0.72s cubic-bezier(.22,1,.36,1) 0.46s forwards;
+}
+body.page-ready .side-note {
+  animation: textRise 0.72s cubic-bezier(.22,1,.36,1) 0.56s forwards;
+}
+
+#savedResults {
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+}
+
+.saved-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.025);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  transform: translateY(24px) scale(0.98);
+}
+
+.saved-card.is-visible {
+  animation: savedCardIn 0.72s cubic-bezier(.22,1,.36,1) forwards;
+}
+
+.saved-card:hover {
+  transform: translateY(-6px) scale(1.01) !important;
+  border-color: rgba(201,169,110,0.22);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.26), 0 0 0 1px rgba(201,169,110,0.08);
+}
+
+@keyframes savedCardIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+.saved-card.is-removing {
+  opacity: 0;
+  transform: translateY(10px) scale(0.96) !important;
+  transition: transform 0.4s cubic-bezier(.22,1,.36,1), opacity 0.4s ease, height 0.4s ease, margin 0.4s ease, padding 0.4s ease;
+}
+
+.sc2-wrap {
+  transition: transform 0.3s cubic-bezier(.22,1,.36,1);
+}
+
+.saved-card:hover .sc2-wrap {
+  transform: translateX(2px);
+}
+
+.sc2-btn {
+  position: relative;
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.sc2-btn:hover {
+  transform: translateY(-1px) scale(1.08);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+}
+
+.sc2-btn:active,
+.btn:active,
+.nav-cta:active,
+.nav-links a:active {
+  transform: scale(0.98);
+}
+
+.btn,
+.nav-links a,
+.nav-cta {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.btn:hover,
+.nav-links a:hover,
+.nav-cta:hover {
+  transform: translateY(-2px);
+}
+
+.btn:hover {
+  box-shadow: 0 16px 28px rgba(0,0,0,0.16);
+}
+
+.nav-links a.active {
+  box-shadow: inset 0 0 0 1px rgba(201,169,110,0.14);
+}
+
+.nav-links a {
+  position: relative;
+}
+
+.nav-links a::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 5px;
+  height: 1px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 220ms ease;
+  opacity: 0.7;
+}
+
+.nav-links a:hover::after,
+.nav-links a.active::after {
+  transform: scaleX(1);
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  /* Align the hero copy block to the end (right) of its grid cell */
+  justify-self: end;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.85s cubic-bezier(.22,1,.36,1), transform 0.85s cubic-bezier(.22,1,.36,1);
+}
+
+@media (max-width: 720px) {
+  .saved-video {
+    animation-duration: 32s;
+  }
+
+  .hero-copy h1 .word {
+    animation-duration: 0.75s;
+  }
+
+  .saved-card:hover {
+    transform: translateY(-3px) scale(1.005) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  body, .saved-video, .saved-particle, .saved-card, .btn, .nav-links a, .nav-cta,
+  .hero-copy, .hero-panel, .results-header, .side-card, .side-note,
+  .hero-copy h1 .word, .reveal, .sc2-btn {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  body { opacity: 1 !important; }
 }

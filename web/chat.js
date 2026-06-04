@@ -73,12 +73,15 @@ async function sendMessage() {
         let reply = '';
         if (contentType.includes('application/json')) {
             const data = await resp.json().catch(() => ({}));
-            reply = data && (data.reply || data.message || data.error || '') || '';
+            reply = data && (data.reply || data.message || data.error || data.detail || '') || '';
+            if (!reply && data && Object.keys(data).length) {
+                reply = JSON.stringify(data);
+            }
         } else {
             reply = await resp.text().catch(() => '');
         }
 
-        if (!reply) reply = resp.ok ? "(no reply)" : `(error ${resp.status}) ${reply}`;
+        if (!reply) reply = resp.ok ? "(no reply)" : `(error ${resp.status}) ${resp.statusText}`;
         addMessage('Bot: ' + reply, 'bot');
     } catch (e) {
         addMessage('Bot: (network error)', 'bot');

@@ -56,9 +56,11 @@ function apiUrl(path) {
 }
 
 function setLocationSummary(text) {
+  const el = document.getElementById('locationSummary');
+  if (el) el.textContent = text || '';
+}
   // Disabled location summary display per user request.
   // Intentionally left blank to prevent updating the UI element.
-}
 
 function setOrigin(origin, source = 'manual') {
   if (!origin || typeof origin.lat !== 'number' || typeof origin.lng !== 'number') return;
@@ -74,6 +76,8 @@ function setOrigin(origin, source = 'manual') {
   if ($locationInput && origin.label) $locationInput.value = origin.label;
 
   setLocationSummary(`${currentOrigin.label} • ${origin.lat.toFixed(5)}, ${origin.lng.toFixed(5)}`);
+  // Update red origin pin whenever origin changes
+  if (globe) addRedPinToScene(origin.lat, origin.lng);
 }
 
 function parseCoords(text) {

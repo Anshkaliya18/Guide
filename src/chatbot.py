@@ -28,6 +28,30 @@ import json
 import requests
 import re
 from pathlib import Path
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_OPENROUTER_MODEL = "openrouter/auto"
+DEFAULT_OPENROUTER_RETRIES = 3
+DEFAULT_OPENROUTER_TIMEOUT = 30
+
+
+def _build_retry_session() -> requests.Session:
+    session = requests.Session()
+    retry = Retry(
+        total=DEFAULT_OPENROUTER_RETRIES,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "POST"],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+CHAT_SESSION = _build_retry_session()
 
 def _load_env_file():
     current_dir = Path(__file__).resolve().parent
@@ -78,26 +102,27 @@ def get_response(message: str) -> str:
     api_key = os.getenv("OPENROUTER_API_KEY")
     if api_key:
         # Call OpenRouter chat completion endpoint.
-        url = "https://openrouter.ai/api/v1/chat/completions"
+        base_url = os.getenv("OPENROUTER_BASE_URL", DEFAULT_OPENROUTER_BASE_URL).rstrip("/")
+        model_name = os.getenv("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
+        url = f"{base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "X-Title": "EarthExplorerChatbot",
         }
-        # Use the model name expected by OpenRouter. Some deployments accept
-        # either the 'openrouter/...' prefix or the short name; try the
-        # commonly used short name here.
         payload = {
-            "model": "gpt-oss-120b",
+            "model": model_name,
             "messages": [{"role": "user", "content": message}],
-            "temperature": 0.7,
-            "max_tokens": 512,
+            "temperature": float(os.getenv("OPENROUTER_TEMPERATURE", "0.7")),
+            "max_tokens": int(os.getenv("OPENROUTER_MAX_TOKENS", "512")),
         }
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
-            # Raise on HTTP error so we can surface a helpful message
+            response = CHAT_SESSION.post(url, headers=headers, json=payload, timeout=DEFAULT_OPENROUTER_TIMEOUT)
             response.raise_for_status()
-            data = response.json()
+            try:
+                data = response.json()
+            except ValueError:
+                data = {"reply": response.text.strip()}
 
             # OpenRouter responses usually mirror OpenAI-style chat completions,
             # but different backends may vary. Try a few common shapes.
@@ -120,8 +145,11 @@ def get_response(message: str) -> str:
                 return f"Chat API error: {data.get('error')}"
 
             # Nothing useful returned — give a helpful fallback including raw response for debugging
-            return (data.get("choices", [{}])[0].get("message", {}).get("content")
-                    or json.dumps(data)[:1000])
+            return (
+                data.get("choices", [{}])[0].get("message", {}).get("content")
+                or data.get("choices", [{}])[0].get("text")
+                or json.dumps(data)[:1000]
+            )
         except requests.HTTPError as exc:
             # Log the error details and fall back to the friendly default response
             try:
