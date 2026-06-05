@@ -1,12 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
+<!doctype html>
+<html lang="en"><head>
+    <meta charset="UTF-8">
     <title>Earth Explorer – Chat</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&amp;family=Outfit:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
     <style>
     body {font-family: var(--font-body); background: var(--bg); color: var(--text); margin: 0;}
     .page-wrapper {padding-top: 80px; /* offset for fixed nav */}
@@ -76,7 +75,7 @@
           #chat {height: 50vh;}
     }
     </style>
-    </head>
+    <style type="text/css" id="mytempCss">._8mqQwQ { display: none; } ._1TWLMK.icF5zO { opacity: 0.01; }</style></head>
     <body class="page-ready">
     <nav class="nav">
     <a href="index.html" class="nav-logo"><span class="dot"></span>Earth Explorer</a>
@@ -85,7 +84,7 @@
     <li><a href="explore.html"><span class="nav-icon">✦</span> Explore</a></li>
     <li><a href="saved.html"><span class="nav-icon">◈</span> Saved</a></li>
     <li><a href="about.html"><span class="nav-icon">◉</span> About</a></li>
-    </ul>
+    <li><a href="chat.html"><span class="nav-icon">◉</span> chat</a></li></ul>
     <a href="explore.html" class="nav-cta">Open Explorer</a>
     <button class="nav-hamburger" id="navHam" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
     </nav>
@@ -99,7 +98,7 @@
           <div class="loader-overlay" id="loaderOverlay"><div class="loader-spinner"></div></div>
     </div>
     <div class="input-area">
-          <input type="text" id="msgInput" placeholder="Ask about a place, coordinates, or anything..." autocomplete="off" />
+          <input type="text" id="msgInput" placeholder="Ask about a place, coordinates, or anything..." autocomplete="off">
           <button id="sendBtn" class="btn btn-gold">Send</button>
     </div>
     </section>
@@ -107,16 +106,24 @@
     <script src="chat.js"></script>
     <script>
     const loader = document.getElementById('loaderOverlay');
-    const originalAddMessage = window.addMessage;
-    window.addMessage = function(text, className) {
-    if (loader) loader.classList.remove('active');
-    originalAddMessage(text, className);
-    };
-    const originalSendMessage = window.sendMessage;
-    window.sendMessage = async function() {
-    if (loader) loader.classList.add('active');
-    await originalSendMessage();
-    };
+      // Override addMessage to hide the loader when a new message is displayed.
+      const originalAddMessage = window.addMessage;
+      window.addMessage = function(text, className) {
+            if (loader) loader.classList.remove('active');
+            originalAddMessage(text, className);
+      };
+      // Wrap sendMessage to ensure the loader is cleared even if the original
+      // implementation already manages it. This prevents the overlay from staying
+      // active indefinitely.
+      const originalSendMessage = window.sendMessage;
+      window.sendMessage = async function() {
+            try {
+                  await originalSendMessage();
+            } finally {
+                  if (loader) loader.classList.remove('active');
+            }
+      };
     </script>
-    </body>
-</html>
+    
+
+</body></html>
