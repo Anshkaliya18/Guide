@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Saved — GUIDE</title>
+  <title>Saved — Earth Explorer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  
   <style>
     body {
       background: var(--bg);
@@ -16,17 +17,15 @@
       overflow-x: hidden;
     }
 
+    /* ─── Hero ─── */
     .saved-hero {
       position: relative;
-      min-height: 86vh;
+      min-height: 92vh;
       padding: 104px 7vw 3rem;
       display: grid;
       grid-template-columns: minmax(340px, 0.95fr) minmax(420px, 1.05fr);
-      grid-template-areas:
-        "copy media"
-        "copy panel";
-      gap: 1.2rem 1.8rem;
-      align-items: start;
+      gap: 1.8rem;
+      align-items: center;
       overflow: hidden;
     }
 
@@ -35,23 +34,27 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse 55% 70% at 70% 50%, rgba(201,169,110,0.10) 0%, transparent 62%),
-        radial-gradient(ellipse 40% 55% at 18% 78%, rgba(80,100,160,0.05) 0%, transparent 60%);
+        radial-gradient(ellipse 58% 72% at 72% 50%, rgba(201,169,110,0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 36% 52% at 15% 85%, rgba(80,100,160,0.06) 0%, transparent 62%);
       pointer-events: none;
       z-index: 1;
     }
 
-    .saved-bg {
-      grid-area: media;
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16 / 9;
+    .saved-video-wrap {
+      position: absolute;
+      inset: 0;
       z-index: 0;
       overflow: hidden;
-      border-radius: var(--radius-xl);
-      border: 1px solid var(--border-2);
-      background: rgba(255,255,255,0.03);
-      box-shadow: 0 14px 40px rgba(0,0,0,0.18);
+    }
+
+    .saved-video-wrap::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(10,11,13,0.92) 0%, rgba(10,11,13,0.78) 42%, rgba(10,11,13,0.34) 72%, rgba(10,11,13,0.82) 100%),
+        linear-gradient(180deg, rgba(10,11,13,0.16) 0%, rgba(10,11,13,0.46) 100%);
+      pointer-events: none;
     }
 
     .saved-video {
@@ -59,19 +62,9 @@
       height: 100%;
       object-fit: cover;
       object-position: center;
-      filter: saturate(0.95) contrast(1.05) brightness(0.72);
-      transform: scale(1.03);
+      filter: saturate(0.9) contrast(1.04) brightness(0.82);
+      transform: scale(1.02);
       display: block;
-    }
-
-    .saved-bg::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(180deg, rgba(10,11,13,0.10) 0%, rgba(10,11,13,0.36) 100%),
-        linear-gradient(90deg, rgba(10,11,13,0.42) 0%, rgba(10,11,13,0.12) 40%, rgba(10,11,13,0.36) 100%);
-      pointer-events: none;
     }
 
     .hero-copy,
@@ -81,15 +74,8 @@
     }
 
     .hero-copy {
-      grid-area: copy;
-      text-align: left;
-      justify-self: start;
+      max-width: 620px;
       align-self: center;
-      max-width: 58ch;
-    }
-
-    .hero-copy .hero-actions {
-      justify-content: flex-start;
     }
 
     .hero-tag {
@@ -114,22 +100,21 @@
 
     .saved-hero h1 {
       font-family: var(--font-display);
-      font-size: clamp(2.8rem, 5vw, 4.5rem);
+      font-size: clamp(2.9rem, 5.2vw, 4.8rem);
       font-weight: 300;
-      line-height: 1.05;
-      letter-spacing: -0.015em;
+      line-height: 1.02;
+      letter-spacing: -0.02em;
       color: var(--text);
       margin-bottom: 1rem;
-      text-align: left;
+      text-wrap: balance;
     }
 
     .saved-hero p {
       color: var(--text-2);
       font-size: 1rem;
-      max-width: 58ch;
+      max-width: 56ch;
       line-height: 1.75;
       margin-bottom: 1.5rem;
-      text-align: left;
     }
 
     .hero-actions {
@@ -137,6 +122,7 @@
       gap: 0.75rem;
       flex-wrap: wrap;
       margin-bottom: 1.25rem;
+      justify-content: flex-start;
     }
 
     .hero-note {
@@ -155,19 +141,84 @@
       font-size: 0.9rem;
     }
 
+    /* ─── Glass panel ─── */
     .hero-panel {
-      grid-area: panel;
-      align-self: start;
-      justify-self: start;
+      justify-self: end;
       width: min(520px, 100%);
       padding: 1.1rem;
-      border-radius: var(--radius-xl);
-      border: 1px solid var(--border-2);
-      background: rgba(255,255,255,0.03);
-      backdrop-filter: blur(18px);
-      box-shadow: 0 14px 40px rgba(0,0,0,0.18);
+      border-radius: var(--radius-xl, 20px);
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(18px) saturate(125%);
+      -webkit-backdrop-filter: blur(18px) saturate(125%);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+      overflow: hidden;
+      /* FIX: use transform3d + will-change to keep panel on compositing layer */
+      will-change: opacity, transform;
+      transform: translateZ(0);
     }
 
+    .glass {
+      position: relative;
+      isolation: isolate;
+    }
+
+    .glass::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 18%, transparent 42%);
+      pointer-events: none;
+      z-index: 0;
+      border-radius: inherit;
+    }
+
+    .glass > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ─── Animations ─────────────────────────────────────
+       FIX: removed conflicting `reveal` class that set
+       opacity:0 + animation on the same element as
+       backdrop-filter (compositing conflict in Chrome/Safari).
+       Each element now uses a single, clear animation class.
+    ───────────────────────────────────────────────────── */
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    @keyframes panelReveal {
+      from { opacity: 0; transform: translateY(24px) scale(0.984); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);     }
+    }
+
+    /* Hero copy stagger */
+    .anim-tag   { opacity: 0; animation: fadeUp 0.85s cubic-bezier(0.2,0.8,0.2,1) 0.06s forwards; }
+    .anim-h1    { opacity: 0; animation: fadeUp 0.85s cubic-bezier(0.2,0.8,0.2,1) 0.18s forwards; }
+    .anim-para  { opacity: 0; animation: fadeUp 0.85s cubic-bezier(0.2,0.8,0.2,1) 0.32s forwards; }
+    .anim-btns  { opacity: 0; animation: fadeUp 0.85s cubic-bezier(0.2,0.8,0.2,1) 0.44s forwards; }
+    .anim-note  { opacity: 0; animation: fadeUp 0.85s cubic-bezier(0.2,0.8,0.2,1) 0.56s forwards; }
+
+    /* Panel — separate keyframe, no scale conflict with backdrop-filter */
+    .anim-panel { opacity: 0; animation: panelReveal 1s cubic-bezier(0.2,0.8,0.2,1) 0.35s forwards; }
+
+    /* Sidebar / section reveals */
+    .anim-side  { opacity: 0; animation: fadeUp 0.85s cubic-bezier(0.2,0.8,0.2,1) 0.5s forwards; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .anim-tag, .anim-h1, .anim-para, .anim-btns,
+      .anim-note, .anim-panel, .anim-side {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
+
+    /* ─── Panel grid ─── */
     .hero-panel-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -176,8 +227,8 @@
 
     .hero-mini {
       padding: 1rem;
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border);
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
       background: rgba(10,11,13,0.45);
     }
 
@@ -198,8 +249,9 @@
       letter-spacing: 0.08em;
     }
 
+    /* ─── Shell layout ─── */
     .saved-shell {
-      padding: 0 7vw 5rem;
+      padding: 2.5rem 7vw 5rem;
       display: grid;
       grid-template-columns: 320px 1fr;
       gap: 1rem;
@@ -216,7 +268,7 @@
       padding: 1.2rem;
       margin-bottom: 1rem;
       border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
+      border-radius: var(--radius-xl, 20px);
       background: rgba(255,255,255,0.03);
     }
 
@@ -250,11 +302,15 @@
       line-height: 1.65;
     }
 
+    /* ─── Results panel ─── */
     .results-panel {
       min-height: 66vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl, 20px);
+      background: rgba(255,255,255,0.02);
     }
 
     .results-header {
@@ -266,7 +322,7 @@
     .results-header-top {
       display: flex;
       justify-content: space-between;
-      align-items: end;
+      align-items: flex-end;
       gap: 1rem;
       flex-wrap: wrap;
       margin-bottom: 0.55rem;
@@ -300,6 +356,7 @@
       min-height: 420px;
     }
 
+    /* ─── Footer ─── */
     .footer {
       padding: 1.5rem 7vw 2.5rem;
       border-top: 1px solid var(--border);
@@ -319,54 +376,27 @@
       list-style: none;
     }
 
-    .footer-links a:hover {
-      color: var(--gold);
-    }
+    .footer-links a { color: var(--text-3); text-decoration: none; }
+    .footer-links a:hover { color: var(--gold); }
 
+    /* ─── Responsive ─── */
     @media (max-width: 1080px) {
       .saved-hero,
-      .saved-shell {
-        grid-template-columns: 1fr;
-        grid-template-areas: none;
-      }
-
-      .hero-copy,
-      .saved-bg,
-      .hero-panel {
-        grid-area: auto;
-      }
-
-      .side {
-        position: static;
-      }
-
-      .hero-panel {
-        justify-self: start;
-      }
-
-      .results-body {
-        min-height: 360px;
-      }
+      .saved-shell { grid-template-columns: 1fr; }
+      .saved-hero { min-height: auto; padding-bottom: 2.5rem; }
+      .hero-panel { justify-self: start; }
+      .side { position: static; }
+      .results-body { min-height: 360px; }
     }
 
     @media (max-width: 720px) {
-      .saved-hero {
-        padding-top: 92px;
-      }
-
-      .hero-copy {
-        max-width: none;
-      }
-
-      .hero-panel-grid {
-        grid-template-columns: 1fr 1fr;
-      }
+      .saved-hero { padding-top: 92px; }
+      .hero-panel-grid { grid-template-columns: 1fr 1fr; }
+      .hero-copy { max-width: none; }
     }
 
     @media (max-width: 520px) {
-      .hero-panel-grid {
-        grid-template-columns: 1fr;
-      }
+      .hero-panel-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -374,7 +404,7 @@
   <div class="space-bg"></div>
 
   <nav class="nav">
-    <a href="index.html" class="nav-logo"><span class="dot"></span>GUIDE</a>
+    <a href="index.html" class="nav-logo"><span class="dot"></span>Earth Explorer</a>
     <ul class="nav-links">
       <li><a href="index.html"><span class="nav-icon">◎</span> Home</a></li>
       <li><a href="explore.html"><span class="nav-icon">✦</span> Explore</a></li>
@@ -393,27 +423,33 @@
     <a href="explore.html">✦ &nbsp;Explore</a>
     <a href="saved.html" class="active">▣ &nbsp;Saved</a>
     <a href="about.html">✧ &nbsp;About</a>
+    <a href="chat.html">💬 &nbsp;Chat</a>
   </div>
 
-  <header class="saved-hero">\n    <div class="saved-particles" aria-hidden="true"></div>
-    <div class="saved-bg"><video class="saved-video" autoplay muted loop playsinline><source src="mixkit-large-paper-lamp-in-the-street-4109-full-hd.mp4" type="video/mp4" /></video></div>
+  <!-- ───── Hero ───── -->
+  <header class="saved-hero">
+    <div class="saved-video-wrap" aria-hidden="true">
+      <video class="saved-video" autoplay muted loop playsinline>
+        <source src="mixkit-large-paper-lamp-in-the-street-4109-full-hd.mp4" type="video/mp4" />
+      </video>
+    </div>
 
-    <div class="hero-copy anim-up">
-      <div class="hero-tag anim-up">Saved collection</div>
-      <h1 class="anim-up-2">Your Personal Collection of Hidden Gems</h1>
-      <p class="hero-paragraph-anim">
-        Every hidden gem you've discovered, saved in one place.
-        Build your personal travel collection, revisit unforgettable destinations,
-        and uncover your next adventure whenever inspiration strikes.
+    <div class="hero-copy">
+      <div class="hero-tag anim-tag">Saved collection</div>
+      <h1 class="anim-h1">Keep your favorite hidden gems in one calm, cinematic place</h1>
+      <p class="anim-para">
+        Every place you discover and save becomes part of a personal travel archive.
+        Revisit unforgettable destinations, plan your next adventure, and keep the most inspiring spots close at hand.
       </p>
-      <div class="hero-actions">
+      <div class="hero-actions anim-btns">
         <a href="explore.html" class="btn btn-gold">Keep exploring</a>
         <a href="index.html" class="btn btn-outline">Back to home</a>
       </div>
-      <div class="hero-note">Your next journey starts with a saved discovery.</div>
+      <div class="hero-note anim-note">A personal archive of places that matter.</div>
     </div>
 
-    <div class="hero-panel glass reveal">
+    <!-- FIX: single anim-panel class, no conflicting reveal class -->
+    <div class="hero-panel glass anim-panel">
       <div class="hero-panel-grid">
         <div class="hero-mini">
           <strong id="savedCount">0</strong>
@@ -435,16 +471,17 @@
     </div>
   </header>
 
+  <!-- ───── Main shell ───── -->
   <main class="saved-shell">
     <aside class="side">
-      <div class="side-card glass reveal">
+      <div class="side-card glass anim-side">
         <h2>How saved places work</h2>
         <p>
           Every place you save becomes part of your personal discovery collection. Revisit unique destinations, plan future trips, and keep track of the hidden gems that caught your attention.
         </p>
       </div>
 
-      <div class="side-card glass reveal">
+      <div class="side-card glass anim-side" style="animation-delay:0.62s;">
         <h2>Quick actions</h2>
         <div class="side-list">
           <a class="btn btn-gold" href="explore.html" style="justify-content:center;">Discover More Hidden Gems</a>
@@ -452,13 +489,13 @@
         </div>
       </div>
 
-      <div class="side-note reveal">
+      <div class="side-note anim-side" style="animation-delay:0.74s;">
         Your collection updates automatically. Save new discoveries, revisit favorites, or remove places with a single click.
       </div>
     </aside>
 
-    <section class="results-panel glass reveal">
-      <div class="results-header reveal">
+    <section class="results-panel glass anim-side" style="animation-delay:0.55s;">
+      <div class="results-header">
         <div class="results-header-top">
           <div>
             <div class="results-title">My Discovery Collection</div>
@@ -490,14 +527,10 @@
       <li><a href="about.html">About</a></li>
       <li><a href="chat.html">Chat</a></li>
     </ul>
-    <span class="footer-copy">© 2025 GUIDE</span>
+    <span class="footer-copy">© 2025 Earth Explorer</span>
   </footer>
 
   <script src="nav.js" defer></script>
-  <script>
-    // motion-ready body state is added by saved-market-ready.js
-  </script>
   <script src="saved.js" defer></script>
-
 </body>
 </html>
